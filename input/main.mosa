@@ -1,0 +1,74 @@
+use mosa->std->[stdin, stdout->printLn];
+
+fn main() {
+    let [name, age]: [str, i32] = stdin.read(2):>[str, i32];
+
+    if age < 5 -> printLn("I'm not sure you can even use this program at that age");
+    else -> printLn(
+        fmt("Hi, {name}!. You are {age} years old.")
+    );
+}
+
+class MoSaExampleClass
+() {
+    // constructor
+    self.val = 15;
+}
+{
+    // methods and fields
+
+    pri let val: i32;
+
+    fn getVal(): typeof val {
+        val
+    }
+
+    fn getMutVal(): &(typeof val) {
+        &val
+    }
+}
+() {
+    // destructor
+    val = -1;
+}
+
+class OtherClass < MoSaExampleClass
+()<{}
+{}<{}
+(){
+   val = -2;
+}
+
+use mosa->std->JSON->JsonSerializable;
+
+class DataClass < JSONSerializable
+()<{}
+{
+   let val: i32;
+   let val2: str;
+   let val3: SomethingElseIDK;
+}<{}
+()<{}
+
+printLn(DataClass.new({
+    val: 1,
+    val2: "idk",
+    val3: SomethingElseIDK.new()
+}).json());
+
+
+enum Token {
+    Number has number,
+    StringPair has [string, string]
+}
+
+extend DataClass {
+    fn smth(): string {
+        // some code here
+    }
+}
+
+class AbstractClass // it has no constructor, made only to extend
+()<void // void means no constructor
+{}<void // no fields and methods
+() {}
