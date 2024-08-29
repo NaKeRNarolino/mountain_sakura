@@ -12,5 +12,6 @@ pub enum KeywordType {
     WhileLoop,
     Let,
     If,
-    Else
+    Else,
+    Use
 }
