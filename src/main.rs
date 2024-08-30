@@ -15,8 +15,6 @@ fn main() {
     let tokens = tokenize(file);
 
     for token in tokens {
-        if let Token::Number(num) = token {
-            println!("{}", num);
-        }
+        dbg!(token);
     }
 }
