@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::hash::Hash;
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Number(f64),
@@ -9,7 +8,9 @@ pub enum Token {
     Identifier(String),
     Keyword(KeywordType),
     Operator(OperatorType),
-    Sign(SignType)
+    Sign(SignType),
+    /// note: should not be used outside lexing process
+    Skip
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -64,6 +65,7 @@ pub enum OperatorType {
     Smaller,
     BiggerEqual,
     SmallerEqual,
+    Equal
 }
 
 pub fn simple_operator_types<'a>() -> HashMap<&'a str, OperatorType> {
@@ -75,6 +77,7 @@ pub fn simple_operator_types<'a>() -> HashMap<&'a str, OperatorType> {
         ("%", OperatorType::Modulo),
         (">", OperatorType::Bigger),
         ("<", OperatorType::Smaller),
+        ("=", OperatorType::Equal)
     ])
 }
 
@@ -92,6 +95,10 @@ pub enum SignType {
     Paren(Direction), // ( )
     Brace(Direction), // [ ]
     CurlyBrace(Direction), // { }
+    EqArrow, // =>
+    DoubleArrow, // ->>
+    Comment, // //
+    Equality, // ==
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -107,6 +114,62 @@ pub fn simple_sign_types() -> HashMap<char, SignType> {
         ('_', SignType::Underscore),
         (';', SignType::Semicolon),
         ('?', SignType::QuestionMk),
-        ('!', SignType::ExclamationMk)
+        ('!', SignType::ExclamationMk),
     ])
+}
+
+pub struct TwoElementSignsConversion {
+    pub first: Token,
+    pub second: Token,
+    pub result: Token
+}
+
+pub fn two_element_signs_conversions() -> Vec<TwoElementSignsConversion> {
+    vec![
+        TwoElementSignsConversion {
+            first: Token::Operator(OperatorType::Plus),
+            second: Token::Operator(OperatorType::Plus),
+            result: Token::Operator(OperatorType::Increment)
+        }, // ++
+        TwoElementSignsConversion {
+            first: Token::Operator(OperatorType::Minus),
+            second: Token::Operator(OperatorType::Minus),
+            result: Token::Operator(OperatorType::Decrement)
+        }, // --
+        TwoElementSignsConversion {
+            first: Token::Operator(OperatorType::Minus),
+            second: Token::Operator(OperatorType::Bigger),
+            result: Token::Sign(SignType::Arrow)
+        }, // ->
+        TwoElementSignsConversion {
+            first: Token::Operator(OperatorType::Smaller),
+            second: Token::Operator(OperatorType::Minus),
+            result: Token::Sign(SignType::BackwardArrow)
+        }, // <-
+        TwoElementSignsConversion {
+            first: Token::Operator(OperatorType::Equal),
+            second: Token::Operator(OperatorType::Bigger),
+            result: Token::Sign(SignType::EqArrow)
+        }, // =>
+        TwoElementSignsConversion {
+            first: Token::Operator(OperatorType::Bigger),
+            second: Token::Operator(OperatorType::Equal),
+            result: Token::Operator(OperatorType::BiggerEqual)
+        }, // >=
+        TwoElementSignsConversion {
+            first: Token::Operator(OperatorType::Smaller),
+            second: Token::Operator(OperatorType::Equal),
+            result: Token::Operator(OperatorType::SmallerEqual)
+        }, // <=
+        TwoElementSignsConversion {
+            first: Token::Sign(SignType::Arrow),
+            second: Token::Operator(OperatorType::Bigger),
+            result: Token::Sign(SignType::DoubleArrow)
+        }, // ->>
+        TwoElementSignsConversion {
+            first: Token::Operator(OperatorType::Equal),
+            second: Token::Operator(OperatorType::Equal),
+            result: Token::Sign(SignType::Equality)
+        } // ==
+    ]
 }
