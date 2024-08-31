@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::hash::Hash;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Number(f64),
@@ -48,7 +49,7 @@ pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
         ("else", KeywordType::Else),
         ("enum", KeywordType::Enum),
         ("pri", KeywordType::Pri),
-        ("exp", KeywordType::Exp)
+        ("exp", KeywordType::Exp),
     ])
 }
 

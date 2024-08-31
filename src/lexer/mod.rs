@@ -15,8 +15,13 @@ fn resolve_string_to_token(input: String) -> Token {
 
     if let Some(token) = reserved_keywords().get(input.as_str()).cloned() {
         Token::Keyword(token)
-    }
-    else {
+    } else if input == String::from("true") || input == String::from("false") {
+        Token::Boolean(if input == String::from("true") {
+            true
+        } else {
+            false
+        })
+    } else {
         Token::Identifier(input)
     }
 }
@@ -25,10 +30,25 @@ pub fn tokenize(input: String) -> Vec<Token> {
     let mut tokens: Vec<Token> = vec![];
 
     let mut input_chars: VecDeque<char> = input.chars().collect();
-
+    let mut making_string: bool = false;
+    let mut string = String::new();
 
     while !input_chars.is_empty() {
         if let Some(char) = input_chars.pop_front() {
+            if char == '"' {
+                making_string = !making_string;
+                if making_string == false {
+                    tokens.push(Token::String(string.clone()));
+                    string = String::from("");
+                }
+                continue;
+            }
+
+            if making_string {
+                string.push(char);
+                continue;
+            }
+
             if is_skippable(char) {
                 tokens.push(Token::Skip);
                 continue;
@@ -110,10 +130,55 @@ pub fn tokenize(input: String) -> Vec<Token> {
 
                         iter_char = input_chars.pop_front().unwrap_or('\r');
                     }
+                } else if char.is_numeric() && tokens.last().unwrap_or(&Token::Skip).clone() == Token::Skip {
+                    let mut number_str = String::new();
+
+                    number_str.push(char);
+
+                    dbg!(input_chars[0]);
+
+                    if input_chars.is_empty() || (!input_chars[0].is_numeric() && input_chars[0] != '.') || is_skippable(input_chars[0]) {
+                        if number_str.chars().last().unwrap_or('!') == '\r' {
+                            number_str.pop();
+                        }
+
+                        tokens.push(resolve_string_to_token(number_str));
+
+                        // input_chars.push_back(iter_char);
+                        continue;
+                    }
+                    let mut iter_char: char = input_chars.pop_front().unwrap_or('\r');
+
+                    loop {
+                        number_str.push(iter_char);
+
+                        if input_chars.is_empty() || (!input_chars[0].is_numeric() && input_chars[0] != '.') || is_skippable(input_chars[0]) {
+                            if number_str.chars().last().unwrap_or('!') == '\r' {
+                                number_str.pop();
+                            }
+
+                            if !number_str.contains('.') {
+                                number_str.push('.');
+                                number_str.push('0');
+                            }
+
+                            tokens.push(
+                                Token::Number(number_str.parse::<f64>().unwrap())
+                            );
+
+                            // input_chars.push_back(iter_char);
+
+                            break;
+                        }
+
+                        iter_char = input_chars.pop_front().unwrap_or('\r');
+                    }
                 }
             }
         }
     }
+
+    tokens = tokens.into_iter().filter(|x| x != &Token::Skip).collect();
 
     tokens
 }
