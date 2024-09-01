@@ -26,7 +26,7 @@ fn resolve_string_to_token(input: String) -> Token {
     }
 }
 
-pub fn tokenize(input: String) -> Vec<Token> {
+pub fn tokenize(input: String) -> VecDeque<Token> {
     let mut tokens: Vec<Token> = vec![];
 
     let mut input_chars: VecDeque<char> = input.chars().collect();
@@ -99,8 +99,6 @@ pub fn tokenize(input: String) -> Vec<Token> {
 
                     identifier_string.push(char);
 
-                    dbg!(input_chars[0]);
-
                     if input_chars.is_empty() || !input_chars[0].is_alphabetic() || is_skippable(input_chars[0]) {
                         if identifier_string.chars().last().unwrap_or('!') == '\r' {
                             identifier_string.pop();
@@ -134,8 +132,6 @@ pub fn tokenize(input: String) -> Vec<Token> {
                     let mut number_str = String::new();
 
                     number_str.push(char);
-
-                    dbg!(input_chars[0]);
 
                     if input_chars.is_empty() || (!input_chars[0].is_numeric() && input_chars[0] != '.') || is_skippable(input_chars[0]) {
                         if number_str.chars().last().unwrap_or('!') == '\r' {
@@ -180,5 +176,7 @@ pub fn tokenize(input: String) -> Vec<Token> {
 
     tokens = tokens.into_iter().filter(|x| x != &Token::Skip).collect();
 
-    tokens
+    tokens.push(Token::End);
+
+    tokens.into()
 }

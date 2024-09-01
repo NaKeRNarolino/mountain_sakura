@@ -1,8 +1,9 @@
 use std::fs;
-use crate::lexer::structs::Token;
 use crate::lexer::tokenize;
+use crate::parser::Parser;
 
 mod lexer;
+mod parser;
 
 fn get_input() -> String {
     let file = fs::read_to_string("./input/main.mosa").unwrap();
@@ -12,9 +13,8 @@ fn get_input() -> String {
 
 fn main() {
     let file = get_input();
-    let tokens = tokenize(file);
 
-    for token in tokens {
-        dbg!(token);
-    }
+    let mut parser = Parser::new(file);
+
+    dbg!(parser.gen_ast());
 }

@@ -11,7 +11,8 @@ pub enum Token {
     Operator(OperatorType),
     Sign(SignType),
     /// note: should not be used outside lexing process
-    Skip
+    Skip,
+    End
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
