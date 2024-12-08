@@ -94,12 +94,12 @@ pub fn tokenize(input: String) -> VecDeque<Token> {
             }
             else {
                 // STRINGS OR NUMBERS
-                if char.is_alphabetic() {
+                if char.is_alphabetic() && !char.is_numeric() {
                     let mut identifier_string = String::new();
 
                     identifier_string.push(char);
 
-                    if input_chars.is_empty() || !input_chars[0].is_alphabetic() || is_skippable(input_chars[0]) {
+                    if input_chars.is_empty() || (!input_chars[0].is_alphabetic() && !input_chars[0].is_numeric()) || is_skippable(input_chars[0]) {
                         if identifier_string.chars().last().unwrap_or('!') == '\r' {
                             identifier_string.pop();
                         }
@@ -114,7 +114,7 @@ pub fn tokenize(input: String) -> VecDeque<Token> {
                     loop {
                         identifier_string.push(iter_char);
 
-                        if input_chars.is_empty() || !input_chars[0].is_alphabetic() || is_skippable(input_chars[0]) {
+                        if input_chars.is_empty() || !input_chars[0].is_alphabetic() || is_skippable(input_chars[0]) || input_chars[0].is_numeric() {
                             if identifier_string.chars().last().unwrap_or('!') == '\r' {
                                 identifier_string.pop();
                             }
@@ -128,7 +128,7 @@ pub fn tokenize(input: String) -> VecDeque<Token> {
 
                         iter_char = input_chars.pop_front().unwrap_or('\r');
                     }
-                } else if char.is_numeric() && tokens.last().unwrap_or(&Token::Skip).clone() == Token::Skip {
+                } else if char.is_numeric() {
                     let mut number_str = String::new();
 
                     number_str.push(char);
@@ -138,7 +138,9 @@ pub fn tokenize(input: String) -> VecDeque<Token> {
                             number_str.pop();
                         }
 
-                        tokens.push(resolve_string_to_token(number_str));
+                        tokens.push(
+                            Token::Number(number_str.parse::<f64>().unwrap())
+                        );
 
                         // input_chars.push_back(iter_char);
                         continue;

@@ -41,5 +41,5 @@ pub enum Operand {
 #[derive(Clone, PartialEq, Debug)]
 pub enum ExpressionType {
     Primary,
-    Binary(Box<BinaryExpression>)
+    Binary(Box<BinaryExpression>),
 }

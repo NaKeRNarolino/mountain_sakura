@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use crate::lexer::structs::{OperatorType, Token};
+use crate::lexer::structs::{Direction, OperatorType, SignType, Token};
 use crate::lexer::tokenize;
 use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, Operand};
 
@@ -62,6 +62,15 @@ impl Parser {
 
         let mut res: ASTNode = ASTNode::Expression(ExpressionType::Primary);
 
+        if let Token::Sign(sign_type) = &token {
+            if let SignType::Paren(direction) = sign_type {
+                if *direction == Direction::Open {
+                    res = self.parse_expressions();
+                    // dbg!("Removed", self.go());
+                }
+            }
+        }
+
         if let Token::String(v) = token.clone() {
             res = ASTNode::String(v);
         } else if let Token::Number(v) = token.clone() {
@@ -76,7 +85,7 @@ impl Parser {
     }
 
     fn parse_add_expressions(&mut self) -> ASTNode {
-        let mut left = self.parse_primary_expressions();
+        let mut left = self.parse_multiply_expressions();
         let token = self.curr();
 
         dbg!(token.clone());
@@ -91,6 +100,35 @@ impl Parser {
                 Operand::Plus
             } else {
                 Operand::Minus
+            };
+            let right = self.parse_multiply_expressions();
+
+            left = ASTNode::Expression(ExpressionType::Binary(
+                Box::new(BinaryExpression {
+                    left: Box::new(left), right: Box::new(right), operand
+                })
+            ))
+        }
+
+        left
+    }
+
+    fn parse_multiply_expressions(&mut self) -> ASTNode {
+        let mut left = self.parse_primary_expressions();
+        let token = self.curr();
+
+        dbg!(token.clone());
+
+        while token == Token::Operator(OperatorType::Multiply) || token == Token::Operator(OperatorType::Divide) {
+            let operator = self.go();
+            dbg!(operator.clone());
+            if operator != Token::Operator(OperatorType::Multiply) && operator != Token::Operator(OperatorType::Divide) {
+                break;
+            }
+            let operand = if operator == Token::Operator(OperatorType::Multiply) {
+                Operand::Multiply
+            } else {
+                Operand::Divide
             };
             let right = self.parse_primary_expressions();
 
