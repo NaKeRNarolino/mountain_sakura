@@ -1,7 +1,4 @@
-let a = 2;
-let b = 3;
-(:=a + 2)?:b;
-a
-
-
-
+let two_power = 1;
+let power = 16;
+(:=two_power * 2)?:power;
+two_power
