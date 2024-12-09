@@ -1,4 +1,4 @@
-use mosa->std->[stdin, stdout->printLn];
+use mosa->std->[format->fmt, stdin, stdout->printLn];
 
 fn main() {
     let [name, age]: [str, num~>i32] = stdin.read(2)|>[str, num];
@@ -36,7 +36,7 @@ class MoSaExampleClass
 class OtherClass < MoSaExampleClass
 ()<{}
 {}<{}
-(){
+()<{
    val = -2;
 }
 
@@ -72,4 +72,4 @@ extend DataClass {
 class AbstractClass // it has no constructor, made only to extend
 ()<void // void means no constructor
 {}<void // no fields and methods
-() {}
+()<void

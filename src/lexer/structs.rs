@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::hash::Hash;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -24,7 +23,6 @@ pub enum KeywordType {
     Has,
     Class,
     Let,
-    Final,
     Const,
     Typeof,
     If,
@@ -43,7 +41,6 @@ pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
         ("use", KeywordType::Use),
         ("class", KeywordType::Class),
         ("let", KeywordType::Let),
-        ("final", KeywordType::Final),
         ("const", KeywordType::Const),
         ("typeof", KeywordType::Typeof),
         ("if", KeywordType::If),
@@ -69,6 +66,7 @@ pub enum OperatorType {
     SmallerEqual,
     Equal,
     SelfAssign,
+    Repeat
 }
 
 pub fn simple_operator_types<'a>() -> HashMap<&'a str, OperatorType> {
@@ -191,5 +189,10 @@ pub fn two_element_signs_conversions() -> Vec<TwoElementSignsConversion> {
             second: Token::Operator(OperatorType::Equal),
             result: Token::Operator(OperatorType::SelfAssign),
         }, // :=
+        TwoElementSignsConversion {
+            first: Token::Sign(SignType::QuestionMk),
+            second: Token::Sign(SignType::Colon),
+            result: Token::Operator(OperatorType::Repeat),
+        }, // ?:
     ]
 }

@@ -1,5 +1,3 @@
-use std::any::Any;
-use std::cmp::PartialEq;
 use std::collections::VecDeque;
 
 // use regex::RegexBuilder;
@@ -35,17 +33,20 @@ pub fn tokenize(input: String) -> VecDeque<Token> {
     let mut input_chars: VecDeque<char> = input.chars().collect();
     let mut making_string: bool = false;
     let mut string = String::new();
+    let mut prev_char: char = '\r';
 
     while !input_chars.is_empty() {
         if let Some(char) = input_chars.pop_front() {
-            if char == '"' {
+            if char == '"' && prev_char != '\\' {
                 making_string = !making_string;
                 if making_string == false {
-                    tokens.push(Token::String(string.clone()));
+                    tokens.push(Token::String(string.clone().replace("\\\"", "\"")));
                     string = String::from("");
                 }
+                prev_char = char;
                 continue;
             }
+            prev_char = char;
 
             if making_string {
                 string.push(char);
@@ -74,7 +75,25 @@ pub fn tokenize(input: String) -> VecDeque<Token> {
             } else if char == '}' {
                 tokens.push(Token::Sign(SignType::CurlyBrace(Direction::Close)))
             } else if let Some(sign_type) = simple_sign_types().get(&char).cloned() {
-                tokens.push(Token::Sign(sign_type));
+                if let Some(last_el) = tokens.last().cloned() {
+                    let mut found = false;
+
+                    for conversion in two_element_signs_conversions() {
+                        if conversion.first == last_el
+                            && conversion.second == Token::Sign(sign_type.clone())
+                        {
+                            found = true;
+                            tokens.pop();
+                            tokens.push(conversion.result);
+                        }
+                    }
+
+                    if !found {
+                        tokens.push(Token::Sign(sign_type));
+                    }
+                } else {
+                    tokens.push(Token::Sign(sign_type));
+                }
             } else if let Some(op) = simple_operator_types()
                 .get(format!("{}", char).as_str())
                 .cloned()

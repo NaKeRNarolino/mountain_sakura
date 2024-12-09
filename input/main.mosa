@@ -1,3 +1,7 @@
-let variable = 3;
-:=variable / 2;
-variable
+let a = 2;
+let b = 3;
+(:=a + 2)?:b;
+a
+
+
+

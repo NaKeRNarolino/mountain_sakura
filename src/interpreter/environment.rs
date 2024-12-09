@@ -60,7 +60,7 @@ impl Environment {
     }
 
     pub fn set_variable(&mut self, identifier: String, value: RuntimeValue) -> Result<(), String> {
-        if let Some(mut env) = self.resolve_variable_environment(&identifier) {
+        if let Some(env) = self.resolve_variable_environment(&identifier) {
             if env.is_const(identifier.clone()) {
                 Err(String::from("Unable to reassign value to a constant"))
             } else {

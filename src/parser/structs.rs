@@ -1,5 +1,3 @@
-use std::fmt::Binary;
-
 #[derive(Clone, PartialEq, Debug)]
 pub enum ASTNode {
     Program(Vec<ASTNode>),
@@ -10,6 +8,7 @@ pub enum ASTNode {
     Identifier(String),
     VariableDeclaration(bool, String, Box<ASTNode>),
     VariableAssignment(String, Box<ASTNode>),
+    RepeatOperation(Box<ASTNode>, Box<ASTNode>),
 }
 #[derive(Clone, PartialEq, Debug)]
 pub struct BinaryExpression {

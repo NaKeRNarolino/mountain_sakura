@@ -80,6 +80,13 @@ impl Parser {
                      self.parse_add_expressions()
                  }
              },
+             Token::Sign(sign_type) => {
+                 if sign_type == SignType::Paren(Direction::Open) {
+                     self.parse_repeat_expression()
+                 } else {
+                     self.parse_add_expressions()
+                 }
+             }
              _ => self.parse_add_expressions()
          }
     }
@@ -267,6 +274,28 @@ impl Parser {
             )
         } else {
             panic!("Cannot use self-assign operator without an identifier.");
+        }
+    }
+
+    fn parse_repeat_expression(&mut self) -> ASTNode {
+        self.go();
+        let operation = self.parse_expressions();
+        if self.curr() == Token::Sign(SignType::Paren(Direction::Close)) {
+            self.go();
+        }
+        let operator = self.curr();
+
+        dbg!(operator.clone());
+
+        if operator == Token::Operator(OperatorType::Repeat) {
+            self.go(); // operator
+            let num_token = self.parse_expressions();
+            ASTNode::RepeatOperation(
+                Box::new(num_token),
+                Box::new(operation)
+            )
+        } else {
+            operation
         }
     }
 }

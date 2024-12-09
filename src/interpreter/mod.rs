@@ -49,6 +49,10 @@ impl Interpreter {
                 self.eval_variable_assignment(identifier.clone(), *value.clone(), environment);
                 RuntimeValue::Null
             }
+            ASTNode::RepeatOperation(count, operation) => {
+                self.eval_repeat_operation(*count.clone(), *operation.clone(), environment);
+                RuntimeValue::Null
+            }
         }
     }
 
@@ -133,14 +137,10 @@ impl Interpreter {
 
         let right_value = self.eval(&right, environment);
 
-        if let RuntimeValue::Number(l) = left_value {
-            if let RuntimeValue::Number(r) = right_value {
-                RuntimeValue::Number(l * if division_mode { 1.0 / r } else { r })
-            } else {
-                RuntimeValue::Null
-            }
+        if division_mode {
+            left_value / right_value
         } else {
-            RuntimeValue::Null
+            left_value * right_value
         }
     }
 
@@ -188,5 +188,16 @@ impl Interpreter {
 
     fn eval_variable_assignment(&self, identifier: String, value: ASTNode, environment: &mut Environment) {
         environment.set_variable(identifier, self.eval(&value, &mut environment.clone())).unwrap()
+    }
+    
+    fn eval_repeat_operation(&self, count: ASTNode, operation: ASTNode, environment: &mut Environment) {
+        let count_rv = self.eval(&count, environment);
+        if let RuntimeValue::Number(count) = count_rv {
+            for _ in 0..count.floor().abs() as u32 {
+                self.eval(&operation, environment);
+            }
+        } else {
+            panic!("The value on the right of the repeat operator (?:) cannot be evaluated into a number.");
+        }
     }
 }

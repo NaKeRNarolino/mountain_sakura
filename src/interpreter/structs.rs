@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub};
+use std::ops::{Add, Div, Mul, Sub};
 
 #[derive(Debug, Clone)]
 pub enum RuntimeValue {
@@ -38,6 +38,46 @@ impl Sub for RuntimeValue {
         if let RuntimeValue::Number(l) = self {
             if let RuntimeValue::Number(r) = rhs {
                 RuntimeValue::Number(l - r)
+            } else {
+                RuntimeValue::Null
+            }
+        } else {
+            RuntimeValue::Null
+        }
+    }
+}
+
+impl Mul for RuntimeValue {
+    type Output = RuntimeValue;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        if let RuntimeValue::Number(l) = self {
+            if let RuntimeValue::Number(r) = rhs {
+                RuntimeValue::Number(l * r)
+            } else if let RuntimeValue::String(r) = rhs {
+                RuntimeValue::String(r.repeat(l.floor() as usize))
+            } else {
+                RuntimeValue::Null
+            }
+        } else if let RuntimeValue::String(l) = self {
+            if let RuntimeValue::Number(r) = rhs {
+                RuntimeValue::String(l.repeat(r.floor() as usize))
+            } else {
+                RuntimeValue::Null
+            }
+        } else {
+            RuntimeValue::Null
+        }
+    }
+}
+
+impl Div for RuntimeValue {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        if let RuntimeValue::Number(l) = self {
+            if let RuntimeValue::Number(r) = rhs {
+                RuntimeValue::Number(l / r)
             } else {
                 RuntimeValue::Null
             }
