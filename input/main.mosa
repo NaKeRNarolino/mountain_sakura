@@ -1,1 +1,3 @@
-3 * 2 * (2 + 3) / 10
+let variable = 3;
+:=variable / 2;
+variable

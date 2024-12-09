@@ -12,7 +12,7 @@ pub enum Token {
     Sign(SignType),
     /// note: should not be used outside lexing process
     Skip,
-    End
+    End,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -67,7 +67,8 @@ pub enum OperatorType {
     Smaller,
     BiggerEqual,
     SmallerEqual,
-    Equal
+    Equal,
+    SelfAssign,
 }
 
 pub fn simple_operator_types<'a>() -> HashMap<&'a str, OperatorType> {
@@ -79,34 +80,35 @@ pub fn simple_operator_types<'a>() -> HashMap<&'a str, OperatorType> {
         ("%", OperatorType::Modulo),
         (">", OperatorType::Bigger),
         ("<", OperatorType::Smaller),
-        ("=", OperatorType::Equal)
+        ("=", OperatorType::Equal),
     ])
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SignType {
-    Semicolon, // ;
-    Colon, // :
-    Comma, // ,
-    Dot, // .
-    Underscore, // _
-    Arrow, // ->
-    BackwardArrow, // <-
-    ExclamationMk, // !
-    QuestionMk, // ?,
-    Paren(Direction), // ( )
-    Brace(Direction), // [ ]
+    Semicolon,             // ;
+    Colon,                 // :
+    Comma,                 // ,
+    Dot,                   // .
+    Underscore,            // _
+    Arrow,                 // ->
+    BackwardArrow,         // <-
+    ExclamationMk,         // !
+    QuestionMk,            // ?,
+    Paren(Direction),      // ( )
+    Brace(Direction),      // [ ]
     CurlyBrace(Direction), // { }
-    EqArrow, // =>
-    DoubleArrow, // ->>
-    Comment, // //
-    Equality, // ==
+    EqArrow,               // =>
+    DoubleArrow,           // ->>
+    Comment,               // //
+    Equality,              // ==
+    Inequality,            // !=
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Direction {
     Open,
-    Close
+    Close,
 }
 
 pub fn simple_sign_types() -> HashMap<char, SignType> {
@@ -116,6 +118,7 @@ pub fn simple_sign_types() -> HashMap<char, SignType> {
         ('_', SignType::Underscore),
         (';', SignType::Semicolon),
         ('?', SignType::QuestionMk),
+        (':', SignType::Colon),
         ('!', SignType::ExclamationMk),
     ])
 }
@@ -123,7 +126,7 @@ pub fn simple_sign_types() -> HashMap<char, SignType> {
 pub struct TwoElementSignsConversion {
     pub first: Token,
     pub second: Token,
-    pub result: Token
+    pub result: Token,
 }
 
 pub fn two_element_signs_conversions() -> Vec<TwoElementSignsConversion> {
@@ -131,47 +134,62 @@ pub fn two_element_signs_conversions() -> Vec<TwoElementSignsConversion> {
         TwoElementSignsConversion {
             first: Token::Operator(OperatorType::Plus),
             second: Token::Operator(OperatorType::Plus),
-            result: Token::Operator(OperatorType::Increment)
+            result: Token::Operator(OperatorType::Increment),
         }, // ++
         TwoElementSignsConversion {
             first: Token::Operator(OperatorType::Minus),
             second: Token::Operator(OperatorType::Minus),
-            result: Token::Operator(OperatorType::Decrement)
+            result: Token::Operator(OperatorType::Decrement),
         }, // --
         TwoElementSignsConversion {
             first: Token::Operator(OperatorType::Minus),
             second: Token::Operator(OperatorType::Bigger),
-            result: Token::Sign(SignType::Arrow)
+            result: Token::Sign(SignType::Arrow),
         }, // ->
         TwoElementSignsConversion {
             first: Token::Operator(OperatorType::Smaller),
             second: Token::Operator(OperatorType::Minus),
-            result: Token::Sign(SignType::BackwardArrow)
+            result: Token::Sign(SignType::BackwardArrow),
         }, // <-
         TwoElementSignsConversion {
             first: Token::Operator(OperatorType::Equal),
             second: Token::Operator(OperatorType::Bigger),
-            result: Token::Sign(SignType::EqArrow)
+            result: Token::Sign(SignType::EqArrow),
         }, // =>
         TwoElementSignsConversion {
             first: Token::Operator(OperatorType::Bigger),
             second: Token::Operator(OperatorType::Equal),
-            result: Token::Operator(OperatorType::BiggerEqual)
+            result: Token::Operator(OperatorType::BiggerEqual),
         }, // >=
         TwoElementSignsConversion {
             first: Token::Operator(OperatorType::Smaller),
             second: Token::Operator(OperatorType::Equal),
-            result: Token::Operator(OperatorType::SmallerEqual)
+            result: Token::Operator(OperatorType::SmallerEqual),
         }, // <=
         TwoElementSignsConversion {
             first: Token::Sign(SignType::Arrow),
             second: Token::Operator(OperatorType::Bigger),
-            result: Token::Sign(SignType::DoubleArrow)
+            result: Token::Sign(SignType::DoubleArrow),
         }, // ->>
         TwoElementSignsConversion {
             first: Token::Operator(OperatorType::Equal),
             second: Token::Operator(OperatorType::Equal),
-            result: Token::Sign(SignType::Equality)
-        } // ==
+            result: Token::Sign(SignType::Equality),
+        }, // ==
+        TwoElementSignsConversion {
+            first: Token::Sign(SignType::ExclamationMk),
+            second: Token::Operator(OperatorType::Equal),
+            result: Token::Sign(SignType::Inequality),
+        }, // !=
+        TwoElementSignsConversion {
+            first: Token::Operator(OperatorType::Divide),
+            second: Token::Operator(OperatorType::Divide),
+            result: Token::Sign(SignType::Comment),
+        }, // //
+        TwoElementSignsConversion {
+            first: Token::Sign(SignType::Colon),
+            second: Token::Operator(OperatorType::Equal),
+            result: Token::Operator(OperatorType::SelfAssign),
+        }, // :=
     ]
 }

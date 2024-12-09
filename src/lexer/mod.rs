@@ -1,9 +1,12 @@
-use std::any::{Any};
+use std::any::Any;
 use std::cmp::PartialEq;
 use std::collections::VecDeque;
 
 // use regex::RegexBuilder;
-use crate::lexer::structs::{reserved_keywords, simple_operator_types, simple_sign_types, two_element_signs_conversions, Direction, SignType, Token};
+use crate::lexer::structs::{
+    reserved_keywords, simple_operator_types, simple_sign_types, two_element_signs_conversions,
+    Direction, SignType, Token,
+};
 pub mod structs;
 
 fn is_skippable(input: char) -> bool {
@@ -72,12 +75,17 @@ pub fn tokenize(input: String) -> VecDeque<Token> {
                 tokens.push(Token::Sign(SignType::CurlyBrace(Direction::Close)))
             } else if let Some(sign_type) = simple_sign_types().get(&char).cloned() {
                 tokens.push(Token::Sign(sign_type));
-            } else if let Some(op) = simple_operator_types().get(format!("{}", char).as_str()).cloned() {
+            } else if let Some(op) = simple_operator_types()
+                .get(format!("{}", char).as_str())
+                .cloned()
+            {
                 if let Some(last_el) = tokens.last().cloned() {
                     let mut found = false;
 
                     for conversion in two_element_signs_conversions() {
-                        if conversion.first == last_el && conversion.second == Token::Operator(op.clone()) {
+                        if conversion.first == last_el
+                            && conversion.second == Token::Operator(op.clone())
+                        {
                             found = true;
                             tokens.pop();
                             tokens.push(conversion.result);
@@ -87,19 +95,20 @@ pub fn tokenize(input: String) -> VecDeque<Token> {
                     if !found {
                         tokens.push(Token::Operator(op));
                     }
-                }
-                else {
+                } else {
                     tokens.push(Token::Operator(op));
                 }
-            }
-            else {
+            } else {
                 // STRINGS OR NUMBERS
                 if char.is_alphabetic() && !char.is_numeric() {
                     let mut identifier_string = String::new();
 
                     identifier_string.push(char);
 
-                    if input_chars.is_empty() || (!input_chars[0].is_alphabetic() && !input_chars[0].is_numeric()) || is_skippable(input_chars[0]) {
+                    if input_chars.is_empty()
+                        || (!input_chars[0].is_alphabetic() && !input_chars[0].is_numeric())
+                        || is_skippable(input_chars[0])
+                    {
                         if identifier_string.chars().last().unwrap_or('!') == '\r' {
                             identifier_string.pop();
                         }
@@ -114,7 +123,11 @@ pub fn tokenize(input: String) -> VecDeque<Token> {
                     loop {
                         identifier_string.push(iter_char);
 
-                        if input_chars.is_empty() || !input_chars[0].is_alphabetic() || is_skippable(input_chars[0]) || input_chars[0].is_numeric() {
+                        if input_chars.is_empty()
+                            || !input_chars[0].is_alphabetic()
+                            || is_skippable(input_chars[0])
+                            || input_chars[0].is_numeric()
+                        {
                             if identifier_string.chars().last().unwrap_or('!') == '\r' {
                                 identifier_string.pop();
                             }
@@ -133,14 +146,15 @@ pub fn tokenize(input: String) -> VecDeque<Token> {
 
                     number_str.push(char);
 
-                    if input_chars.is_empty() || (!input_chars[0].is_numeric() && input_chars[0] != '.') || is_skippable(input_chars[0]) {
+                    if input_chars.is_empty()
+                        || (!input_chars[0].is_numeric() && input_chars[0] != '.')
+                        || is_skippable(input_chars[0])
+                    {
                         if number_str.chars().last().unwrap_or('!') == '\r' {
                             number_str.pop();
                         }
 
-                        tokens.push(
-                            Token::Number(number_str.parse::<f64>().unwrap())
-                        );
+                        tokens.push(Token::Number(number_str.parse::<f64>().unwrap()));
 
                         // input_chars.push_back(iter_char);
                         continue;
@@ -150,7 +164,10 @@ pub fn tokenize(input: String) -> VecDeque<Token> {
                     loop {
                         number_str.push(iter_char);
 
-                        if input_chars.is_empty() || (!input_chars[0].is_numeric() && input_chars[0] != '.') || is_skippable(input_chars[0]) {
+                        if input_chars.is_empty()
+                            || (!input_chars[0].is_numeric() && input_chars[0] != '.')
+                            || is_skippable(input_chars[0])
+                        {
                             if number_str.chars().last().unwrap_or('!') == '\r' {
                                 number_str.pop();
                             }
@@ -160,9 +177,7 @@ pub fn tokenize(input: String) -> VecDeque<Token> {
                                 number_str.push('0');
                             }
 
-                            tokens.push(
-                                Token::Number(number_str.parse::<f64>().unwrap())
-                            );
+                            tokens.push(Token::Number(number_str.parse::<f64>().unwrap()));
 
                             // input_chars.push_back(iter_char);
 

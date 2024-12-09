@@ -1,7 +1,7 @@
 use mosa->std->[stdin, stdout->printLn];
 
 fn main() {
-    let [name, age]: [str, num] = stdin.read(2)|>[str, num];
+    let [name, age]: [str, num~>i32] = stdin.read(2)|>[str, num];
 
     if age < 5 -> printLn("I'm not sure you can even use this program at that age");
     else -> printLn(

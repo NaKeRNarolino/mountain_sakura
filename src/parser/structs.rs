@@ -6,7 +6,10 @@ pub enum ASTNode {
     Expression(ExpressionType),
     Number(f64),
     String(String),
-    Identifier(String)
+    Boolean(bool),
+    Identifier(String),
+    VariableDeclaration(bool, String, Box<ASTNode>),
+    VariableAssignment(String, Box<ASTNode>),
 }
 #[derive(Clone, PartialEq, Debug)]
 pub struct BinaryExpression {
@@ -18,6 +21,7 @@ pub struct BinaryExpression {
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum Operand {
     Equality,
+    Inequality,
     EqArrow,
     DoubleArrow,
     Arrow,
@@ -35,11 +39,11 @@ pub enum Operand {
     Smaller,
     BiggerEqual,
     SmallerEqual,
-    Equal
+    Equal,
 }
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ExpressionType {
-    Primary,
+    Null,
     Binary(Box<BinaryExpression>),
 }
