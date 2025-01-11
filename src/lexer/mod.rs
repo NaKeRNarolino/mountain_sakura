@@ -143,9 +143,8 @@ pub fn tokenize(input: String) -> VecDeque<Token> {
                         identifier_string.push(iter_char);
 
                         if (input_chars.is_empty()
-                            || !input_chars[0].is_alphabetic()
-                            || is_skippable(input_chars[0])
-                            || input_chars[0].is_numeric())
+                            || (!input_chars[0].is_alphabetic() && !input_chars[0].is_numeric())
+                            || is_skippable(input_chars[0]))
                             && input_chars.get(0).cloned().unwrap_or(' ') != '_'
                         {
                             if identifier_string.chars().last().unwrap_or('!') == '\r' {
