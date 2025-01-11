@@ -1,4 +1,2 @@
-let two_power = 1;
-let power = 16;
-(:=two_power * 2)?:power;
-two_power
+let a = 1;
+a + 4

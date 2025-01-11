@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+use std::hash::Hash;
+use crate::global::DataType;
+
 #[derive(Clone, PartialEq, Debug)]
 pub enum ASTNode {
     Program(Vec<ASTNode>),
@@ -9,6 +13,9 @@ pub enum ASTNode {
     VariableDeclaration(bool, String, Box<ASTNode>),
     VariableAssignment(String, Box<ASTNode>),
     RepeatOperation(Box<ASTNode>, Box<ASTNode>),
+    FunctionDeclaration(String, HashMap<String, String>, Box<ASTNode>),
+    FunctionBody(Vec<ASTNode>),
+    FunctionCall(String, Vec<ASTNode>)
 }
 #[derive(Clone, PartialEq, Debug)]
 pub struct BinaryExpression {
