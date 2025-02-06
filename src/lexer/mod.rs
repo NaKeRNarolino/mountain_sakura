@@ -125,7 +125,9 @@ pub fn tokenize(input: String) -> VecDeque<Token> {
                     identifier_string.push(char);
 
                     if input_chars.is_empty()
-                        || (!input_chars[0].is_alphabetic() && !input_chars[0].is_numeric() && input_chars[0] != '_')
+                        || (!input_chars[0].is_alphabetic()
+                            && !input_chars[0].is_numeric()
+                            && input_chars[0] != '_')
                         || is_skippable(input_chars[0])
                     {
                         if identifier_string.chars().last().unwrap_or('!') == '\r' {

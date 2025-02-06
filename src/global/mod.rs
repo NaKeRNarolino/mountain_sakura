@@ -1,7 +1,7 @@
 #[derive(Clone, Debug, PartialEq)]
 pub enum DataType {
     Num(NumType),
-    String
+    String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -16,5 +16,5 @@ pub enum NumType {
     U8,
     U16,
     U32,
-    U64
+    U64,
 }

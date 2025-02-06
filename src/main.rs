@@ -1,14 +1,14 @@
-use crate::interpreter::environment::{Environment, EnvironmentMap};
+use crate::interpreter::environment::RuntimeScope;
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use std::fs;
 use std::time::Instant;
 use uuid::Uuid;
 
+pub mod global;
 pub mod interpreter;
 pub mod lexer;
 pub mod parser;
-pub mod global;
 
 fn get_input() -> String {
     let file = fs::read_to_string("./input/main.mosa").unwrap();
@@ -25,10 +25,9 @@ fn main() {
 
     dbg!(ast);
 
-    let mut env_map = EnvironmentMap::new();
-    // 
+    let scope = RuntimeScope::new(None);
+    //
     // env_map.insert(Uuid::new_v4(), Environment::new());
-
 
     // env.declare_variable(true, String::from("true"), RuntimeValue::Bool(true)).unwrap();
     // env.declare_variable(true, String::from("false"), RuntimeValue::Bool(false)).unwrap();
@@ -37,7 +36,7 @@ fn main() {
 
     let time = Instant::now();
 
-    dbg!(interpreter.eval_program(&mut env_map));
+    dbg!(interpreter.eval_program(scope));
 
     let elapsed = time.elapsed();
 

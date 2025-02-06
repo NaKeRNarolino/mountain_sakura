@@ -112,3 +112,29 @@ impl PartialEq for RuntimeValue {
         }
     }
 }
+
+impl RuntimeValue {
+    pub fn bigger(&self, other: &Self, equal: bool) -> RuntimeValue {
+        if let RuntimeValue::Number(l) = self.clone() {
+            if let RuntimeValue::Number(r) = other.clone() {
+                RuntimeValue::Bool(l > r || (equal && l == r))
+            } else {
+                RuntimeValue::Null
+            }
+        } else {
+            RuntimeValue::Null
+        }
+    }
+
+    pub fn smaller(&self, other: &Self, equal: bool) -> RuntimeValue {
+        if let RuntimeValue::Number(l) = self.clone() {
+            if let RuntimeValue::Number(r) = other.clone() {
+                RuntimeValue::Bool(l < r || (equal && l == r))
+            } else {
+                RuntimeValue::Null
+            }
+        } else {
+            RuntimeValue::Null
+        }
+    }
+}

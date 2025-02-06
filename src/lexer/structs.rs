@@ -30,6 +30,7 @@ pub enum KeywordType {
     Pri,
     Exp,
     Enum,
+    Immut,
 }
 
 pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
@@ -48,6 +49,7 @@ pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
         ("enum", KeywordType::Enum),
         ("pri", KeywordType::Pri),
         ("exp", KeywordType::Exp),
+        ("immut", KeywordType::Immut),
     ])
 }
 
@@ -66,7 +68,7 @@ pub enum OperatorType {
     SmallerEqual,
     Equal,
     SelfAssign,
-    Repeat
+    Repeat,
 }
 
 pub fn simple_operator_types<'a>() -> HashMap<&'a str, OperatorType> {

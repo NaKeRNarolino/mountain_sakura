@@ -1,6 +1,6 @@
+use crate::global::DataType;
 use std::collections::HashMap;
 use std::hash::Hash;
-use crate::global::DataType;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ASTNode {
@@ -15,8 +15,16 @@ pub enum ASTNode {
     RepeatOperation(Box<ASTNode>, Box<ASTNode>),
     FunctionDeclaration(String, HashMap<String, String>, Box<ASTNode>),
     FunctionBody(Vec<ASTNode>),
-    FunctionCall(String, Vec<ASTNode>)
+    FunctionCall(String, Vec<ASTNode>),
+    IfStatement(Vec<ASTNode>, Vec<ASTNode>),
+    Misc(MiscNodeType),
 }
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum MiscNodeType {
+    DoubleArrow,
+}
+
 #[derive(Clone, PartialEq, Debug)]
 pub struct BinaryExpression {
     pub left: Box<ASTNode>,

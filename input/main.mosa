@@ -1,1 +1,11 @@
-i 32
+fn add_ten ->> Num -> Num {
+    it + 10
+}
+
+let a = 12;
+:=a ->> add_ten;
+a
+
+
+
+
