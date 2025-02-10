@@ -1,11 +1,9 @@
-fn add_ten ->> Num -> Num {
-    it + 10
+fn power_of_two ->> Num -> Num {
+    let buf = 1;
+    (:=buf * 2)?:it;
+    buf
 }
 
-let a = 12;
-:=a ->> add_ten;
-a
-
-
-
-
+immut let power = 8;
+let res = power ->> power_of_two;
+res
