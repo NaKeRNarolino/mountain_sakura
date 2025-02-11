@@ -1,4 +1,10 @@
-// Hello world!!
-let a = 10;
-// Comment
-a + 2 // and also a comment
+fn f ->> Num -> Num {
+    if it == 1 {
+        1
+    } else {
+        it * f(it - 1)
+    }
+}
+
+let v = f(5) * 5;
+v

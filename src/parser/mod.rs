@@ -1,11 +1,8 @@
-use crate::global::DataType;
 use crate::lexer::structs::{Direction, KeywordType, OperatorType, SignType, Token};
 use crate::lexer::tokenize;
 use crate::parser::structs::ASTNode::Expression;
-use crate::parser::structs::MiscNodeType;
-use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, Operand};
+use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, IfStatement, Operand};
 use std::collections::{HashMap, VecDeque};
-use std::env::args;
 
 pub mod structs;
 
@@ -16,8 +13,6 @@ pub struct Parser {
 impl Parser {
     pub fn new(source: String) -> Self {
         let tokens = tokenize(source);
-
-        dbg!(tokens.clone());
 
         Self { tokens }
     }
@@ -42,7 +37,7 @@ impl Parser {
         self.tokens.pop_front().unwrap_or(Token::End).clone()
     }
 
-    fn next(&mut self) -> Token {
+    fn peek(&mut self) -> Token {
         self.tokens.get(1).cloned().unwrap_or(Token::End)
     }
 
@@ -50,11 +45,8 @@ impl Parser {
         let mut body: Vec<ASTNode> = vec![];
 
         while !self.is_end() {
-            dbg!(self.curr());
             body.push(self.parse_expressions())
         }
-
-        dbg!(body.clone());
 
         ASTNode::Program(body)
     }
@@ -66,13 +58,12 @@ impl Parser {
                 KeywordType::Const => self.parse_variable_declaration(),
                 KeywordType::Immut => self.parse_variable_declaration(),
                 KeywordType::Fn => self.parse_fn_declaration(),
+                KeywordType::If => self.parse_if_declaration(),
                 _ => ASTNode::Expression(ExpressionType::Null),
             },
             Token::Identifier(_) => {
-                if self.next() == Token::Operator(OperatorType::Equal) {
+                if self.peek() == Token::Operator(OperatorType::Equal) {
                     self.parse_variable_assignment()
-                } else if self.next() == Token::Sign(SignType::Paren(Direction::Open)) {
-                    self.parse_function_call()
                 } else {
                     self.parse_add_expressions()
                 }
@@ -102,30 +93,40 @@ impl Parser {
     fn parse_primary_expressions(&mut self) -> Option<ASTNode> {
         // self.parse_add_expressions()
 
-        let token = self.go();
+        let token = self.curr();
 
-        let mut res = Some(ASTNode::Expression(ExpressionType::Null));
+        let res = Some(ASTNode::Expression(ExpressionType::Null));
 
         if let Token::Sign(sign_type) = &token {
             if let SignType::Paren(direction) = sign_type {
-                if *direction == Direction::Open {
-                    res = Some(self.parse_expressions());
+                return if *direction == Direction::Open {
+                    self.go();
+                    Some(self.parse_expressions())
                     // dbg!("Removed", self.go());
                 } else {
-                    res = None
+                    self.go();
+                    None
                 }
             }
         }
 
         if let Token::String(v) = token.clone() {
-            res = Some(ASTNode::String(v));
+            self.go();
+            return Some(ASTNode::String(v));
         } else if let Token::Number(v) = token.clone() {
-            res = Some(ASTNode::Number(v));
+            self.go();
+            return Some(ASTNode::Number(v));
         } else if let Token::Identifier(v) = token.clone() {
-            res = Some(ASTNode::Identifier(v));
+            self.go();
+            return Some(ASTNode::Identifier(v));
         } else if let Token::Sign(sign_type) = token.clone() {
             if let SignType::Semicolon = sign_type {
-                res = Some(ASTNode::Expression(ExpressionType::Null));
+                self.go();
+                return Some(ASTNode::Expression(ExpressionType::Null));
+            } else {
+                if sign_type != SignType::CurlyBrace(Direction::Close) {
+                    self.go();
+                }
             }
         }
 
@@ -136,13 +137,10 @@ impl Parser {
         let mut left = self.parse_multiply_expressions();
         let token = self.curr();
 
-        dbg!(token.clone());
-
         while token == Token::Operator(OperatorType::Plus)
             || token == Token::Operator(OperatorType::Minus)
         {
             let operator = self.curr();
-            dbg!(operator.clone());
             if operator != Token::Operator(OperatorType::Plus)
                 && operator != Token::Operator(OperatorType::Minus)
             {
@@ -199,13 +197,11 @@ impl Parser {
         let mut left = self.parse_equality_expressions();
         let token = self.curr();
 
-        dbg!(token.clone());
 
         while token == Token::Operator(OperatorType::Multiply)
             || token == Token::Operator(OperatorType::Divide)
         {
             let operator = self.curr();
-            dbg!(operator.clone());
             if operator != Token::Operator(OperatorType::Multiply)
                 && operator != Token::Operator(OperatorType::Divide)
             {
@@ -233,12 +229,10 @@ impl Parser {
         let mut left = self.parse_comparison_expressions();
         let token = self.curr();
 
-        dbg!(token.clone());
 
         while token == Token::Sign(SignType::Equality) || token == Token::Sign(SignType::Inequality)
         {
             let operator = self.curr();
-            dbg!(operator.clone());
             if operator != Token::Sign(SignType::Equality)
                 && operator != Token::Sign(SignType::Inequality)
             {
@@ -266,7 +260,6 @@ impl Parser {
         let mut left = self.parse_double_arrow_call();
         let token = self.curr();
 
-        dbg!(token.clone());
 
         while token == Token::Operator(OperatorType::Bigger)
             || token == Token::Operator(OperatorType::Smaller)
@@ -274,7 +267,6 @@ impl Parser {
             || token == Token::Operator(OperatorType::SmallerEqual)
         {
             let operator = self.curr();
-            dbg!(operator.clone());
             if !(operator == Token::Operator(OperatorType::Bigger)
                 || operator == Token::Operator(OperatorType::Smaller)
                 || operator == Token::Operator(OperatorType::BiggerEqual)
@@ -308,7 +300,7 @@ impl Parser {
     fn parse_variable_assignment(&mut self) -> ASTNode {
         let identifier_token = self.go();
         let _ = self.go(); // equals sign goes here
-        let value = self.parse_function_call();
+        let value = self.parse_expressions();
 
         if let Token::Identifier(identifier) = identifier_token {
             ASTNode::VariableAssignment(identifier, Box::new(value))
@@ -336,7 +328,6 @@ impl Parser {
         }
         let operator = self.curr();
 
-        dbg!(operator.clone());
 
         if operator == Token::Operator(OperatorType::Repeat) {
             self.go(); // operator
@@ -364,7 +355,6 @@ impl Parser {
 
                 let data_type_token = self.go();
 
-                dbg!(data_type_token.clone());
 
                 if let Token::Identifier(_data_type) = data_type_token {
                     self.expect_token(
@@ -396,13 +386,13 @@ impl Parser {
             }
             args_map.insert(arg_name, data_type);
         }
-        dbg!(self.go()); // paren
+        // dbg!(self.go()); // paren
         args_map
     }
 
     fn parse_fn_arg(&mut self) -> (String, String) {
         let identifier_token = self.go();
-        dbg!(identifier_token.clone());
+        // dbg!(identifier_token.clone());
         if let Token::Identifier(identifier) = identifier_token {
             if self.curr() == Token::Sign(SignType::Colon) {
                 self.go(); // colon
@@ -423,7 +413,7 @@ impl Parser {
 
     fn expect_token(&mut self, token: Token, reason: &str) {
         let tk = self.go();
-        dbg!("Just removed {}", tk.clone());
+        // dbg!("Just removed {}", tk.clone());
         if token != tk {
             panic!("{}", reason)
         }
@@ -437,12 +427,12 @@ impl Parser {
         }
         self.go();
 
-        ASTNode::FunctionBody(nodes)
+        ASTNode::CodeBlock(nodes)
     }
 
     fn parse_function_call(&mut self) -> ASTNode {
         if let Token::Identifier(identifier) = self.curr() {
-            if self.next() == Token::Sign(SignType::Paren(Direction::Open)) {
+            if self.peek() == Token::Sign(SignType::Paren(Direction::Open)) {
                 self.go();
                 // self.go();
                 let arg_list = self.parse_fn_call_arg_list();
@@ -466,10 +456,12 @@ impl Parser {
 
         let mut list: Vec<ASTNode> = vec![self.parse_expressions()];
         let mut tk = self.go();
+        dbg!(&tk);
 
         while tk == Token::Sign(SignType::Comma) && !self.is_end() {
             list.push(self.parse_expressions());
             tk = self.go();
+            dbg!(&tk);
         }
 
         // self.expect_token(Token::Sign(SignType::Paren(Direction::Close)), "Expected a closing paren.");
@@ -514,11 +506,11 @@ impl Parser {
         let mut left = self.parse_function_call();
         let token = self.curr();
 
-        dbg!(token.clone());
+        // dbg!(token.clone());
 
         while token == Token::Sign(SignType::DoubleArrow) {
             let operator = self.curr();
-            dbg!(operator.clone());
+            // dbg!(operator.clone());
             if operator != Token::Sign(SignType::DoubleArrow) {
                 break;
             }
@@ -577,4 +569,30 @@ impl Parser {
     //
     //     new_nodes
     // }
+
+    fn parse_if_declaration(&mut self) -> ASTNode {
+        self.go(); // if
+
+        let condition = Box::new(self.parse_expressions());
+
+        let block = Box::new(self.parse_code_block());
+
+        let mut else_block: Option<Box<ASTNode>> = None;
+
+        // dbg!(self.peek(), self.curr());
+
+        //
+        if self.curr() == Token::Keyword(KeywordType::Else) {
+            self.go(); // else;
+            else_block = Some(Box::new(self.parse_code_block()));
+        }
+
+        ASTNode::IfStatement(
+            IfStatement {
+                condition,
+                if_block: block,
+                else_block
+            }
+        )
+    }
 }

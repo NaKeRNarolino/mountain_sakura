@@ -3,7 +3,7 @@ pub mod structs;
 
 use crate::interpreter::environment::{FnArgs, RuntimeScope};
 use crate::interpreter::structs::RuntimeValue;
-use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, Operand};
+use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, IfStatement, Operand};
 use std::cell::RefCell;
 use std::ptr::eq;
 use std::rc::Rc;
@@ -13,6 +13,8 @@ use uuid::Uuid;
 pub struct Interpreter {
     program: Vec<ASTNode>,
 }
+
+type RuntimeScopeW = Arc<RwLock<RuntimeScope>>;
 
 impl<'a> Interpreter {
     pub fn new(src: ASTNode) -> Self {
@@ -35,7 +37,7 @@ impl<'a> Interpreter {
         last_evaluated
     }
 
-    fn eval(&self, src: &ASTNode, scope: Arc<RwLock<RuntimeScope>>) -> RuntimeValue {
+    fn eval(&self, src: &ASTNode, scope: RuntimeScopeW) -> RuntimeValue {
         match src {
             ASTNode::Program(body) => {
                 let mut last_evaluated = RuntimeValue::Null;
@@ -69,20 +71,25 @@ impl<'a> Interpreter {
                 RuntimeValue::Null
             }
             ASTNode::FunctionDeclaration(identifier, args, body) => {
-                if let ASTNode::FunctionBody(body_code) = *body.clone() {
+                if let ASTNode::CodeBlock(body_code) = *body.clone() {
                     self.eval_fn_declaration(identifier.clone(), args.clone(), body_code, scope);
                     RuntimeValue::Null
                 } else {
                     unreachable!()
                 }
             }
-            ASTNode::FunctionBody(..) => {
-                unreachable!();
+            ASTNode::CodeBlock(code) => {
+                self.eval(
+                    &ASTNode::Program(code.clone()),
+                    scope
+                )
             }
             ASTNode::FunctionCall(identifier, args) => {
                 self.eval_fn_call(identifier.clone(), args.clone(), scope)
             }
-            ASTNode::IfStatement(_, _) => RuntimeValue::Null,
+            ASTNode::IfStatement(stmt) => {
+                self.eval_if_statement(stmt.clone(), scope)
+            },
             ASTNode::Misc(_) => unreachable!(),
         }
     }
@@ -90,7 +97,7 @@ impl<'a> Interpreter {
     fn eval_expression(
         &self,
         expression_type: &ExpressionType,
-        scope: Arc<RwLock<RuntimeScope>>,
+        scope: RuntimeScopeW,
     ) -> RuntimeValue {
         match expression_type {
             ExpressionType::Null => RuntimeValue::Null,
@@ -103,7 +110,7 @@ impl<'a> Interpreter {
     fn eval_binary_expression(
         &self,
         binary_expression: BinaryExpression,
-        scope: Arc<RwLock<RuntimeScope>>,
+        scope: RuntimeScopeW,
     ) -> RuntimeValue {
         match binary_expression.operand {
             Operand::Equality => self.eval_equality_expression(binary_expression, false, scope),
@@ -141,7 +148,7 @@ impl<'a> Interpreter {
         &self,
         binary_expression: BinaryExpression,
         minus_mode: bool,
-        scope: Arc<RwLock<RuntimeScope>>,
+        scope: RuntimeScopeW,
     ) -> RuntimeValue {
         let left = *binary_expression.left;
         let right = *binary_expression.right;
@@ -161,7 +168,7 @@ impl<'a> Interpreter {
         &self,
         binary_expression: BinaryExpression,
         division_mode: bool,
-        scope: Arc<RwLock<RuntimeScope>>,
+        scope: RuntimeScopeW,
     ) -> RuntimeValue {
         let left = *binary_expression.left;
         let right = *binary_expression.right;
@@ -181,7 +188,7 @@ impl<'a> Interpreter {
         &self,
         binary_expression: BinaryExpression,
         inequality_mode: bool,
-        scope: Arc<RwLock<RuntimeScope>>,
+        scope: RuntimeScopeW,
     ) -> RuntimeValue {
         let left = *binary_expression.left;
         let right = *binary_expression.right;
@@ -207,7 +214,7 @@ impl<'a> Interpreter {
         // }
     }
 
-    fn get_variable(&self, identifier: String, scope: Arc<RwLock<RuntimeScope>>) -> RuntimeValue {
+    fn get_variable(&self, identifier: String, scope: RuntimeScopeW) -> RuntimeValue {
         scope.read().unwrap().read_variable(identifier).unwrap()
     }
 
@@ -216,7 +223,7 @@ impl<'a> Interpreter {
         is_immut: bool,
         identifier: String,
         value: ASTNode,
-        scope: Arc<RwLock<RuntimeScope>>,
+        scope: RuntimeScopeW,
     ) {
         let eval = self.eval(&value, scope.clone());
         scope
@@ -229,7 +236,7 @@ impl<'a> Interpreter {
         &self,
         identifier: String,
         value: ASTNode,
-        scope: Arc<RwLock<RuntimeScope>>,
+        scope: RuntimeScopeW,
     ) {
         let v = self.eval(&value, scope.clone());
         scope.write().unwrap().assign_variable(identifier, v);
@@ -239,7 +246,7 @@ impl<'a> Interpreter {
         &self,
         count: ASTNode,
         operation: ASTNode,
-        scope: Arc<RwLock<RuntimeScope>>,
+        scope: RuntimeScopeW,
     ) {
         let count_rv = self.eval(&count, scope.clone());
         if let RuntimeValue::Number(count) = count_rv {
@@ -256,7 +263,7 @@ impl<'a> Interpreter {
         identifier: String,
         args: FnArgs,
         body: Vec<ASTNode>,
-        scope: Arc<RwLock<RuntimeScope>>,
+        scope: RuntimeScopeW,
     ) {
         scope
             .write()
@@ -268,22 +275,27 @@ impl<'a> Interpreter {
         &self,
         identifier: String,
         args: Vec<ASTNode>,
-        scope: Arc<RwLock<RuntimeScope>>,
+        scope: RuntimeScopeW,
     ) -> RuntimeValue {
         let mut new_scope = RuntimeScope::new(Some(scope.clone()));
 
         let fn_data = new_scope.get_function(identifier).unwrap();
 
+        let mut argu: RuntimeValue = RuntimeValue::Null;
+
         for (i, (arg, data_type)) in fn_data.args.iter().enumerate() {
             dbg!(arg, &args[i]);
             let ev = self.eval(&args[i], scope.clone());
+            argu = ev.clone();
             new_scope.declare_variable(arg.clone(), ev, true);
         }
 
-        self.eval(
+        let r = self.eval(
             &ASTNode::Program(fn_data.body),
             Arc::new(RwLock::new(new_scope)),
-        )
+        );
+        dbg!(&r, argu);
+        r
     }
 
     fn eval_comparison_expression(
@@ -291,7 +303,7 @@ impl<'a> Interpreter {
         expr: BinaryExpression,
         bigger: bool,
         equal: bool,
-        scope: Arc<RwLock<RuntimeScope>>,
+        scope: RuntimeScopeW,
     ) -> RuntimeValue {
         let lv = self.eval(&expr.left, scope.clone());
         let rv = self.eval(&expr.right, scope.clone());
@@ -300,6 +312,28 @@ impl<'a> Interpreter {
             lv.bigger(&rv, equal)
         } else {
             lv.smaller(&rv, equal)
+        }
+    }
+    
+    fn eval_if_statement(
+        &self,
+        statement: IfStatement,
+        scope: RuntimeScopeW,
+    ) -> RuntimeValue {
+        let eval_stmt = self.eval(&statement.condition, scope.clone());
+
+        if let RuntimeValue::Bool(stmt_value) = eval_stmt {
+            if stmt_value {
+                self.eval(&statement.if_block, scope)
+            } else {
+                if statement.else_block.is_some() {
+                    self.eval(&statement.else_block.unwrap(), scope)
+                } else {
+                    RuntimeValue::Null
+                }
+            }
+        } else {
+            panic!("Expected a Boolean value as a result")
         }
     }
 }

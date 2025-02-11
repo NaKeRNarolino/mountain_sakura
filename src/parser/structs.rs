@@ -14,10 +14,17 @@ pub enum ASTNode {
     VariableAssignment(String, Box<ASTNode>),
     RepeatOperation(Box<ASTNode>, Box<ASTNode>),
     FunctionDeclaration(String, HashMap<String, String>, Box<ASTNode>),
-    FunctionBody(Vec<ASTNode>),
+    CodeBlock(Vec<ASTNode>),
     FunctionCall(String, Vec<ASTNode>),
-    IfStatement(Vec<ASTNode>, Vec<ASTNode>),
+    IfStatement(IfStatement),
     Misc(MiscNodeType),
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct IfStatement {
+    pub condition: Box<ASTNode>,
+    pub if_block: Box<ASTNode>,
+    pub else_block: Option<Box<ASTNode>>
 }
 
 #[derive(Clone, PartialEq, Debug)]
