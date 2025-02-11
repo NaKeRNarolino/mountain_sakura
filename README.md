@@ -27,3 +27,5 @@ immut let power = 8; // MoSa has no constants in their regular form, so we use `
 let res = power ->> power_of_two; // using DAS to pass `power` as an argument to `power_of_two`
 res // returning `res`; 256 is the result
 ```
+
+You can check the docs at the wiki: https://github.com/NaKeRNarolino/mountain_sakura/wiki

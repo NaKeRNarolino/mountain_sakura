@@ -1,16 +1,10 @@
-let b = 2;
-
-let a = once {
-    if b > 10 {
-        2
-    }
-    if b > 5 {
+fn f ->> Num -> Num {
+    if it == 1 {
         1
+    } else {
+        it * f(it - 1)
     }
-    if b > 15 {
-        3
-    }
-} else {
-    100
-};
+}
+
+let a = 5 ->> f;
 a
