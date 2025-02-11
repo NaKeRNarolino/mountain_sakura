@@ -1,4 +1,4 @@
-# Mountain Sakura - `a language that actually makes sense.`
+# Mountain Sakura - *a language that actually makes sense.*
 
 A small code example
 ```mosa

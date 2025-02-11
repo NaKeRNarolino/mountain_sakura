@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-// use regex::RegexBuilder;
+use regex::RegexBuilder;
 use crate::lexer::structs::{
     reserved_keywords, simple_operator_types, simple_sign_types, two_element_signs_conversions,
     Direction, SignType, Token,
@@ -27,8 +27,13 @@ fn resolve_string_to_token(input: String) -> Token {
     }
 }
 
-pub fn tokenize(input: String) -> VecDeque<Token> {
+pub fn tokenize(raw_input: String) -> VecDeque<Token> {
     let mut tokens: Vec<Token> = vec![];
+
+    let input = RegexBuilder::new(r"[\\/].*").build().unwrap().replace_all(
+        &raw_input,
+        ""
+    ).to_string();
 
     let mut input_chars: VecDeque<char> = input.chars().collect();
     let mut making_string: bool = false;

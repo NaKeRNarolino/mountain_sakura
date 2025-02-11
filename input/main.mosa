@@ -1,9 +1,4 @@
-fn power_of_two ->> Num -> Num {
-    let buf = 1;
-    (:=buf * 2)?:it;
-    buf
-}
-
-immut let power = 8;
-let res = power ->> power_of_two;
-res
+// Hello world!!
+let a = 10;
+// Comment
+a + 2 // and also a comment
