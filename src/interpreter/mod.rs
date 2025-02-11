@@ -3,7 +3,7 @@ pub mod structs;
 
 use crate::interpreter::environment::{FnArgs, RuntimeScope};
 use crate::interpreter::structs::RuntimeValue;
-use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, IfStatement, Operand};
+use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, IfStatement, OnceStatement, Operand};
 use std::cell::RefCell;
 use std::ptr::eq;
 use std::rc::Rc;
@@ -91,6 +91,9 @@ impl<'a> Interpreter {
                 self.eval_if_statement(stmt.clone(), scope)
             },
             ASTNode::Misc(_) => unreachable!(),
+            ASTNode::OnceStatement(stmt) => {
+                self.eval_once_statement(stmt.clone(), scope)
+            },
         }
     }
 
@@ -335,5 +338,34 @@ impl<'a> Interpreter {
         } else {
             panic!("Expected a Boolean value as a result")
         }
+    }
+
+    fn eval_once_statement(
+        &self,
+        statement: OnceStatement,
+        scope: RuntimeScopeW,
+    ) -> RuntimeValue {
+        let mut res = RuntimeValue::Null;
+        let mut set = false;
+
+        for if_st in statement.if_statements {
+            let eval_stmt = self.eval(&if_st.condition, scope.clone());
+
+            if let RuntimeValue::Bool(stmt_value) = eval_stmt {
+                if stmt_value {
+                    res = self.eval(&if_st.if_block.clone(), scope.clone());
+                    set = true;
+                    break;
+                }
+            }
+        }
+
+        if !set {
+            if statement.else_block.is_some() {
+                res = self.eval(&statement.else_block.unwrap(), scope);
+            }
+        }
+
+        res
     }
 }

@@ -17,7 +17,14 @@ pub enum ASTNode {
     CodeBlock(Vec<ASTNode>),
     FunctionCall(String, Vec<ASTNode>),
     IfStatement(IfStatement),
+    OnceStatement(OnceStatement),
     Misc(MiscNodeType),
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct OnceStatement {
+    pub if_statements: Vec<IfStatement>,
+    pub else_block: Option<Box<ASTNode>>,
 }
 
 #[derive(Clone, PartialEq, Debug)]

@@ -3,6 +3,7 @@ use crate::lexer::tokenize;
 use crate::parser::structs::ASTNode::Expression;
 use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, IfStatement, Operand};
 use std::collections::{HashMap, VecDeque};
+use crate::parser::structs::OnceStatement;
 
 pub mod structs;
 
@@ -59,6 +60,7 @@ impl Parser {
                 KeywordType::Immut => self.parse_variable_declaration(),
                 KeywordType::Fn => self.parse_fn_declaration(),
                 KeywordType::If => self.parse_if_declaration(),
+                KeywordType::Once => self.parse_once_declaration(),
                 _ => ASTNode::Expression(ExpressionType::Null),
             },
             Token::Identifier(_) => {
@@ -422,7 +424,7 @@ impl Parser {
     fn parse_code_block(&mut self) -> ASTNode {
         let mut nodes: Vec<ASTNode> = Vec::new();
 
-        while self.curr() != Token::Sign(SignType::CurlyBrace(Direction::Close)) {
+        while self.curr() != Token::Sign(SignType::CurlyBrace(Direction::Close)) && !self.is_end() {
             nodes.push(self.parse_expressions());
         }
         self.go();
@@ -456,7 +458,6 @@ impl Parser {
 
         let mut list: Vec<ASTNode> = vec![self.parse_expressions()];
         let mut tk = self.go();
-        dbg!(&tk);
 
         while tk == Token::Sign(SignType::Comma) && !self.is_end() {
             list.push(self.parse_expressions());
@@ -594,5 +595,35 @@ impl Parser {
                 else_block
             }
         )
+    }
+
+    fn parse_once_declaration(&mut self) -> ASTNode {
+        self.go(); // `once`
+
+        // self.expect_token(Token::Sign(SignType::CurlyBrace(Direction::Open)), "Expecting an opening curly brace.");
+
+        let tk = self.go();
+        let mut ifs: Vec<IfStatement> = Vec::new();
+        let mut else_block: Option<Box<ASTNode>> = None;
+
+        while self.curr() != Token::Sign(SignType::CurlyBrace(Direction::Close)) && !self.is_end() {
+            if let ASTNode::IfStatement(if_st) = self.parse_if_declaration() {
+                ifs.push(if_st);
+                // self.expect_token(Token::Sign(SignType::Semicolon), "Expected a semicolon");
+            }
+            // tk = self.go();
+            dbg!(&&tk);
+        }
+        self.go();
+
+        if self.curr() == Token::Keyword(KeywordType::Else) {
+            self.go(); // `else`
+            else_block = Some(Box::new(self.parse_code_block()));
+        }
+
+        ASTNode::OnceStatement(OnceStatement {
+            else_block,
+            if_statements: ifs
+        })
     }
 }
