@@ -31,7 +31,8 @@ pub enum KeywordType {
     Exp,
     Enum,
     Immut,
-    Once
+    Once,
+    Native
 }
 
 pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
@@ -52,6 +53,7 @@ pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
         ("exp", KeywordType::Exp),
         ("immut", KeywordType::Immut),
         ("once", KeywordType::Once),
+        ("native", KeywordType::Native)
     ])
 }
 
@@ -105,6 +107,7 @@ pub enum SignType {
     Comment,               // //
     Equality,              // ==
     Inequality,            // !=
+    HashSign,              // #
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -122,6 +125,7 @@ pub fn simple_sign_types() -> HashMap<char, SignType> {
         ('?', SignType::QuestionMk),
         (':', SignType::Colon),
         ('!', SignType::ExclamationMk),
+        ('#', SignType::HashSign)
     ])
 }
 

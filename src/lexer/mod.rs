@@ -43,17 +43,18 @@ pub fn tokenize(raw_input: String) -> VecDeque<Token> {
     while !input_chars.is_empty() {
         if let Some(char) = input_chars.pop_front() {
             if char == '"' && prev_char != '\\' {
+                prev_char = char;
                 making_string = !making_string;
                 if making_string == false {
                     tokens.push(Token::String(string.clone().replace("\\\"", "\"")));
                     string = String::from("");
                 }
-                prev_char = char;
                 continue;
             }
             prev_char = char;
 
             if making_string {
+                dbg!(&char);
                 string.push(char);
                 continue;
             }

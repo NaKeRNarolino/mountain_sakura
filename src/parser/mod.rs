@@ -3,6 +3,7 @@ use crate::lexer::tokenize;
 use crate::parser::structs::ASTNode::Expression;
 use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, IfStatement, Operand};
 use std::collections::{HashMap, VecDeque};
+use crate::parser::structs::UseNative;
 use crate::parser::structs::OnceStatement;
 
 pub mod structs;
@@ -14,6 +15,8 @@ pub struct Parser {
 impl Parser {
     pub fn new(source: String) -> Self {
         let tokens = tokenize(source);
+
+        dbg!(&tokens);
 
         Self { tokens }
     }
@@ -61,6 +64,7 @@ impl Parser {
                 KeywordType::Fn => self.parse_fn_declaration(),
                 KeywordType::If => self.parse_if_declaration(),
                 KeywordType::Once => self.parse_once_declaration(),
+                KeywordType::Use => self.parse_use(),
                 _ => ASTNode::Expression(ExpressionType::Null),
             },
             Token::Identifier(_) => {
@@ -388,7 +392,7 @@ impl Parser {
             }
             args_map.insert(arg_name, data_type);
         }
-        // dbg!(self.go()); // paren
+        self.go();
         args_map
     }
 
@@ -625,5 +629,37 @@ impl Parser {
             else_block,
             if_statements: ifs
         })
+    }
+
+    fn parse_use(&mut self) -> ASTNode {
+        self.go(); // `use`
+        if self.curr() == Token::Keyword(KeywordType::Native) {
+            self.parse_use_native()
+        } else {
+            ASTNode::Expression(ExpressionType::Null)
+        }
+    }
+
+    fn parse_use_native(&mut self) -> ASTNode {
+        self.go(); // `native`
+
+        if Token::Keyword(KeywordType::Fn) == self.go() {
+            if let Token::Identifier(identifier) = self.go() {
+                self.expect_token(Token::Sign(SignType::HashSign), &format!("Expected a `#` after `use native {}", &identifier));
+
+                if let Token::String(from) = self.go() {
+                    ASTNode::UseNative(UseNative {
+                        name: identifier,
+                        from,
+                    })
+                } else {
+                    panic!("Expected a string to qualify the path")
+                }
+            } else {
+                panic!("Expected an identifier after `use native`")
+            }
+        } else {
+            unreachable!()
+        }
     }
 }

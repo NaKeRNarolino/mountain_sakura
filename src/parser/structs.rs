@@ -18,6 +18,7 @@ pub enum ASTNode {
     FunctionCall(String, Vec<ASTNode>),
     IfStatement(IfStatement),
     OnceStatement(OnceStatement),
+    UseNative(UseNative),
     Misc(MiscNodeType),
 }
 
@@ -32,6 +33,12 @@ pub struct IfStatement {
     pub condition: Box<ASTNode>,
     pub if_block: Box<ASTNode>,
     pub else_block: Option<Box<ASTNode>>
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct UseNative {
+    pub name: String,
+    pub from: String
 }
 
 #[derive(Clone, PartialEq, Debug)]

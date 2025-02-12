@@ -25,6 +25,8 @@ pub struct RuntimeScope {
     parent: Option<Arc<RwLock<RuntimeScope>>>,
     variables: HashMap<String, VariableData>,
     functions: HashMap<String, FunctionData>,
+    native_functions: HashMap<String, Arc<dyn Fn(Vec<RuntimeValue>)->RuntimeValue>>,
+    defined_native_functions: HashMap<String, String>
 }
 
 impl RuntimeScope {
@@ -33,6 +35,8 @@ impl RuntimeScope {
             parent,
             variables: HashMap::new(),
             functions: Default::default(),
+            native_functions: Default::default(),
+            defined_native_functions: Default::default(),
         }
     }
 
@@ -94,6 +98,28 @@ impl RuntimeScope {
                 parent.read().unwrap().get_function(name)
             } else {
                 panic!("Cannot read the function {}, as it's not declared", name)
+            }
+        }
+    }
+
+    pub fn add_native_function(&mut self, path: String, function: Arc<dyn Fn(Vec<RuntimeValue>)->RuntimeValue>) {
+        self.native_functions.insert(path, function);
+    }
+
+    pub fn define_native_function(&mut self, ident: String, path: String) {
+        self.defined_native_functions.insert(ident, path);
+    }
+
+    pub fn get_native_function_from_ident(&self, ident: String) -> Option<Arc<dyn Fn(Vec<RuntimeValue>)->RuntimeValue>> {
+        if let Some(native_function) = self.native_functions.get(
+            self.defined_native_functions.get(&ident).expect("Cannot find native function")
+        ) {
+            Some(native_function.clone())
+        } else {
+            if let Some(parent) = &self.parent {
+                parent.read().unwrap().get_native_function_from_ident(ident)
+            } else {
+                None
             }
         }
     }

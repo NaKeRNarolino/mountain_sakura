@@ -1,10 +1,5 @@
-fn f ->> Num -> Num {
-    if it == 1 {
-        1
-    } else {
-        it * f(it - 1)
-    }
-}
+use native fn printLn # "mosa-native~>printLn";
 
-let a = 5 ->> f;
-a
+printLn("Hello, world!");
+printLn("MoSa can now write to the terminal!");
+printLn("Aren't native functions cool?");

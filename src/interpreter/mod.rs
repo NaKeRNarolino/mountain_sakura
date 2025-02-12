@@ -1,9 +1,9 @@
-pub mod environment;
+pub mod scope;
 pub mod structs;
 
-use crate::interpreter::environment::{FnArgs, RuntimeScope};
+use crate::interpreter::scope::{FnArgs, RuntimeScope};
 use crate::interpreter::structs::RuntimeValue;
-use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, IfStatement, OnceStatement, Operand};
+use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, IfStatement, OnceStatement, Operand, UseNative};
 use std::cell::RefCell;
 use std::ptr::eq;
 use std::rc::Rc;
@@ -93,6 +93,10 @@ impl<'a> Interpreter {
             ASTNode::Misc(_) => unreachable!(),
             ASTNode::OnceStatement(stmt) => {
                 self.eval_once_statement(stmt.clone(), scope)
+            },
+            ASTNode::UseNative(use_native) => {
+                self.eval_define_native_fn(use_native, scope);
+                RuntimeValue::Null
             },
         }
     }
@@ -280,25 +284,32 @@ impl<'a> Interpreter {
         args: Vec<ASTNode>,
         scope: RuntimeScopeW,
     ) -> RuntimeValue {
-        let mut new_scope = RuntimeScope::new(Some(scope.clone()));
+        let native = scope.read().unwrap().get_native_function_from_ident(identifier.clone()).is_some();
 
-        let fn_data = new_scope.get_function(identifier).unwrap();
+        if !native {
+            let mut new_scope = RuntimeScope::new(Some(scope.clone()));
 
-        let mut argu: RuntimeValue = RuntimeValue::Null;
+            let fn_data = new_scope.get_function(identifier).unwrap();
 
-        for (i, (arg, data_type)) in fn_data.args.iter().enumerate() {
-            dbg!(arg, &args[i]);
-            let ev = self.eval(&args[i], scope.clone());
-            argu = ev.clone();
-            new_scope.declare_variable(arg.clone(), ev, true);
+            let mut argu: RuntimeValue = RuntimeValue::Null;
+
+            for (i, (arg, data_type)) in fn_data.args.iter().enumerate() {
+                dbg!(arg, &args[i]);
+                let ev = self.eval(&args[i], scope.clone());
+                argu = ev.clone();
+                new_scope.declare_variable(arg.clone(), ev, true);
+            }
+
+            let r = self.eval(
+                &ASTNode::Program(fn_data.body),
+                Arc::new(RwLock::new(new_scope)),
+            );
+            dbg!(&r, argu);
+            r
+        } else {
+            let args_ev = args.iter().map(|x| self.eval(x, scope.clone())).collect();
+            (scope.read().unwrap().get_native_function_from_ident(identifier).expect("Cannot find native fn"))(args_ev)
         }
-
-        let r = self.eval(
-            &ASTNode::Program(fn_data.body),
-            Arc::new(RwLock::new(new_scope)),
-        );
-        dbg!(&r, argu);
-        r
     }
 
     fn eval_comparison_expression(
@@ -367,5 +378,12 @@ impl<'a> Interpreter {
         }
 
         res
+    }
+
+    fn eval_define_native_fn(&self, native_fn: &UseNative, scope: RuntimeScopeW) {
+        scope.write().unwrap().define_native_function(
+            native_fn.name.clone(),
+            native_fn.from.clone()
+        )
     }
 }
