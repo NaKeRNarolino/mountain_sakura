@@ -32,7 +32,8 @@ pub enum KeywordType {
     Enum,
     Immut,
     Once,
-    Native
+    Native,
+    Block
 }
 
 pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
@@ -53,7 +54,8 @@ pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
         ("exp", KeywordType::Exp),
         ("immut", KeywordType::Immut),
         ("once", KeywordType::Once),
-        ("native", KeywordType::Native)
+        ("native", KeywordType::Native),
+        ("block", KeywordType::Block)
     ])
 }
 

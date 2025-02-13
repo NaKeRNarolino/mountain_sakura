@@ -35,6 +35,18 @@ fn main() {
         }
         RuntimeValue::Null
     }));
+
+    scope.add_native_function(String::from("mosa-native~>sum"), Arc::new(|args| {
+        if let RuntimeValue::Number(f) = &args[0] {
+            if let RuntimeValue::Number(s) = &args[1] {
+                RuntimeValue::Number(f + s)
+            } else {
+                panic!("Expected a number!")
+            }
+        } else {
+            panic!("Expected a Number!")
+        }
+    }));
     
     //
     // env_map.insert(Uuid::new_v4(), Environment::new());

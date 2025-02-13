@@ -1,5 +1,8 @@
-use native fn printLn # "mosa-native~>printLn";
+let a = 10;
 
-printLn("Hello, world!");
-printLn("MoSa can now write to the terminal!");
-printLn("Aren't native functions cool?");
+(block {
+    :=a + 1;
+    :=a * 2;
+})?:2;
+
+a

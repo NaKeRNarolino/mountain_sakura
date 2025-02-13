@@ -65,6 +65,10 @@ impl Parser {
                 KeywordType::If => self.parse_if_declaration(),
                 KeywordType::Once => self.parse_once_declaration(),
                 KeywordType::Use => self.parse_use(),
+                KeywordType::Block => {
+                    self.go(); // `block`
+                    self.parse_code_block()
+                }
                 _ => ASTNode::Expression(ExpressionType::Null),
             },
             Token::Identifier(_) => {
