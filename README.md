@@ -1,6 +1,23 @@
 # Mountain Sakura - *a language that actually makes sense.*
 
-A small code example
+MoSa is a work-in-progress interpreted programming languages, that's really easy to integrate with Rust.
+It's `use native` allows to make calling rust code as easy as just calling a function.
+
+```mosa
+use native fn printLn # "mosa-native~>printLn";
+
+printLn("Hello, world!");
+```
+And on the Rust side of things
+```rust
+scope.add_native_function(String::from("mosa-native~>printLn"), Arc::new(|args| {
+    println!("{}", &args[0]);
+    RuntimeValue::Null
+}));
+```
+---
+
+Here's a small example of MoSa code.
 ```mosa
 // Calculate a power of 2
 

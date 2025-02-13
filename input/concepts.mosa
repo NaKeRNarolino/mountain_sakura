@@ -73,3 +73,42 @@ class AbstractClass // it has no constructor, made only to extend
 ()<void // void means no constructor
 {}<void // no fields and methods
 ()<void
+
+layout Layout {
+    val: Num,
+    val2: String,
+    val3: Num|>I32
+}
+
+exp insert fn to Layout {
+    method fn some_method() -> Num {
+        this.val + this.val3
+    }
+
+    method fn some_other_method() -> Num {
+        this.val2 * this.val
+    }
+
+    fn some_function() -> $this {
+        $this {
+            val: 0.0,
+            val2: "",
+            val3: 0
+        }
+    }
+}
+
+interface layout Interface;
+insert fn to Interface {
+    fn default() -> $this {
+        $this {
+            derive Default
+        }
+    }
+}
+
+insert Interface to Layout;
+
+expand Layout {
+    $via DiffInterface;
+}
