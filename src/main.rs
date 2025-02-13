@@ -4,7 +4,6 @@ use crate::parser::Parser;
 use std::fs;
 use std::sync::Arc;
 use std::time::Instant;
-use uuid::Uuid;
 use crate::interpreter::structs::RuntimeValue;
 
 pub mod global;
@@ -30,9 +29,12 @@ fn main() {
     let mut scope = RuntimeScope::new(None);
     
     scope.add_native_function(String::from("mosa-native~>printLn"), Arc::new(|args| {
-        if let RuntimeValue::String(str) = &args[0] {
-            println!("{}", str);
-        }
+        println!("{}", args[0]);
+        RuntimeValue::Null
+    }));
+
+    scope.add_native_function(String::from("mosa-native~>print"), Arc::new(|args| {
+        print!("{}", args[0]);
         RuntimeValue::Null
     }));
 

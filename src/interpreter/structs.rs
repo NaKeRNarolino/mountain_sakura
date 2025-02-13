@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Sub};
 
 #[derive(Debug, Clone)]
@@ -136,5 +137,32 @@ impl RuntimeValue {
         } else {
             RuntimeValue::Null
         }
+    }
+}
+
+impl Display for RuntimeValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            RuntimeValue::Number(num) => {
+                num.to_string()
+            },
+            RuntimeValue::Null => {
+                String::from("null")
+            },
+            RuntimeValue::String(str) => {
+                str.clone()
+            },
+            RuntimeValue::Bool(bool) => {
+                String::from(if *bool {
+                    "true"
+                } else {
+                    "false"
+                })
+            },
+            RuntimeValue::Complex => {
+                String::from("Unable to properly convert the value to a string.")
+            }
+        };
+        write!(f, "{}", str)
     }
 }

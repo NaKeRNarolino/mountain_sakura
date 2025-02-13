@@ -3,7 +3,6 @@
 A small code example
 ```mosa
 // Calculate a power of 2
-// Note that comments are not currently supported.
 
 fn power_of_two ->> Num -> Num { // define a function using DAS. (You can use a regular function too)
     let buf = 1; // create a variable `buf` and assign 1
