@@ -1,0 +1,6 @@
+fn f(a: Num, b: Num) -> Num {
+    a + b
+}
+
+immut let x = f(1, 3);
+x

@@ -110,9 +110,27 @@ impl RuntimeScope {
         self.defined_native_functions.insert(ident, path);
     }
 
+    pub fn get_defined_name(&self, ident: String) -> Option<String> {
+        if let Some(def) = self.defined_native_functions.get(&ident) {
+            Some(def.clone())
+        } else {
+            if let Some(parent) = &self.parent {
+                parent.read().unwrap().get_defined_name(ident)
+            } else {
+                None
+            }
+        }
+    }
+
     pub fn get_native_function_from_ident(&self, ident: String) -> Option<Arc<dyn Fn(Vec<RuntimeValue>)->RuntimeValue>> {
+        let def = self.get_defined_name(ident.clone());
+
+        if def.is_none() {
+            return None
+        }
+
         if let Some(native_function) = self.native_functions.get(
-            self.defined_native_functions.get(&ident).expect("Cannot find native function")
+            &def.unwrap()
         ) {
             Some(native_function.clone())
         } else {

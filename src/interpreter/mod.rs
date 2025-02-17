@@ -79,8 +79,8 @@ impl<'a> Interpreter {
                 }
             }
             ASTNode::CodeBlock(code) => {
-                self.eval(
-                    &ASTNode::Program(code.clone()),
+                self.eval_code_block(
+                    code.clone(),
                     scope
                 )
             }
@@ -284,7 +284,9 @@ impl<'a> Interpreter {
         args: Vec<ASTNode>,
         scope: RuntimeScopeW,
     ) -> RuntimeValue {
+        dbg!(&&identifier);
         let native = scope.read().unwrap().get_native_function_from_ident(identifier.clone()).is_some();
+
 
         if !native {
             let mut new_scope = RuntimeScope::new(Some(scope.clone()));
@@ -385,5 +387,16 @@ impl<'a> Interpreter {
             native_fn.name.clone(),
             native_fn.from.clone()
         )
+    }
+    
+    fn eval_code_block(&self, code: Vec<ASTNode>, scope: RuntimeScopeW) -> RuntimeValue {
+        let new_scope = RuntimeScope::new(Some(scope.clone()));
+        
+        let res = self.eval(
+            &ASTNode::Program(code.clone()),
+            Arc::new(RwLock::new(new_scope)),
+        );
+        
+        res
     }
 }
