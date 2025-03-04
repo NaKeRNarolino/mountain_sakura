@@ -185,6 +185,7 @@ impl Parser {
         }
 
         let identifier: String;
+        let mut type_id: Option<String> = None;
 
         if let Token::Identifier(ident) = self.go() {
             identifier = ident;
@@ -193,14 +194,30 @@ impl Parser {
                 "Cannot parse a variable declaration, as an identifier is not passed after `let`."
             );
         }
+        
+        if self.curr() != Token::Sign(SignType::Colon) {
+            if is_immut {
+                panic!("Cannot declare an immutable variable without a type.")
+            }
+        } else {
+            self.go();
+            
+            if let Token::Identifier(r#type) = self.go() {
+                type_id = Some(r#type)
+            } else {
+                panic!("Expected a type name after `:`");
+            }
+        }
 
         if self.go() != Token::Operator(OperatorType::Equal) {
             if is_immut {
                 panic!("Declaring immutables requires a value.")
             }
         }
+        
+        let expr = self.parse_expressions();
 
-        ASTNode::VariableDeclaration(is_immut, identifier, Box::new(self.parse_expressions()))
+        ASTNode::VariableDeclaration(is_immut, identifier, type_id.unwrap_or(String::from("1MOSA_UNDEFINED")), Box::new(expr))
     }
 
     fn parse_multiply_expressions(&mut self) -> ASTNode {

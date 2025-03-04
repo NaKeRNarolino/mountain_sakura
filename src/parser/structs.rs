@@ -10,7 +10,7 @@ pub enum ASTNode {
     String(String),
     Boolean(bool),
     Identifier(String),
-    VariableDeclaration(bool, String, Box<ASTNode>),
+    VariableDeclaration(bool, String, String, Box<ASTNode>),
     VariableAssignment(String, Box<ASTNode>),
     RepeatOperation(Box<ASTNode>, Box<ASTNode>),
     FunctionDeclaration(String, HashMap<String, String>, Box<ASTNode>),

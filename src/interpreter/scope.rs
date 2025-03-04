@@ -12,6 +12,7 @@ pub type FnArgs = HashMap<String, String>;
 
 pub struct VariableData {
     pub value: RwLock<RuntimeValue>,
+    pub type_id: String,
     pub immut: bool,
 }
 
@@ -40,11 +41,20 @@ impl RuntimeScope {
         }
     }
 
-    pub fn declare_variable(&mut self, name: String, value: RuntimeValue, is_immut: bool) {
+    pub fn declare_variable(&mut self, name: String, type_id: String, value: RuntimeValue, is_immut: bool) {
+        let value_type = self.get_value_type(&value);
+        if type_id.clone() != "1MOSA_UNDEFINED" && type_id.clone() != value_type {
+            panic!("Cannot declare variable `{}` of type `{}` with value of type `{}`", &name, &type_id, value_type)
+        }
         self.variables.insert(
             name,
             VariableData {
                 immut: is_immut,
+                type_id: if type_id == "1MOSA_UNDEFINED" {
+                    value_type
+                } else {
+                    type_id.clone()
+                },
                 value: RwLock::new(value),
             },
         );
@@ -70,10 +80,15 @@ impl RuntimeScope {
                     name
                 );
             }
+            let value_type = self.get_value_type(&value);
+            if variable.type_id.clone() != value_type {
+                panic!("Cannot assign value of type `{}` to variable `{}` of type `{}`.", value_type, &name, &variable.type_id)
+            }
             self.variables.insert(
                 name,
                 VariableData {
-                    value: RwLock::new(value),
+                    value: RwLock::new(value.clone()),
+                    type_id: variable.type_id.clone(),
                     immut: variable.immut,
                 },
             );
@@ -139,6 +154,16 @@ impl RuntimeScope {
             } else {
                 None
             }
+        }
+    }
+
+    pub fn get_value_type(&self, value: &RuntimeValue) -> String {
+        match value {
+            RuntimeValue::Number(_) => { "num".to_string() }
+            RuntimeValue::Null => { "null".to_string() }
+            RuntimeValue::String(_) => { "str".to_string() }
+            RuntimeValue::Bool(_) => { "bool".to_string() }
+            RuntimeValue::Complex => { "complex".to_string() }
         }
     }
 }

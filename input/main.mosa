@@ -1,6 +1,3 @@
-fn f(a: Num, b: Num) -> Num {
-    a + b
-}
+use native fn printLn#"mosa-native~>printLn";
 
-immut let x = f(1, 3);
-x
+let a: str = ""

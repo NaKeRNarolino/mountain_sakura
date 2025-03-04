@@ -16,7 +16,7 @@ pub struct Interpreter {
 
 type RuntimeScopeW = Arc<RwLock<RuntimeScope>>;
 
-impl<'a> Interpreter {
+impl Interpreter {
     pub fn new(src: ASTNode) -> Self {
         if let ASTNode::Program(program) = src {
             Self { program }
@@ -53,10 +53,11 @@ impl<'a> Interpreter {
             ASTNode::String(v) => RuntimeValue::String(v.clone()),
             ASTNode::Boolean(v) => RuntimeValue::Bool(v.clone()),
             ASTNode::Identifier(identifier) => self.get_variable(identifier.clone(), scope),
-            ASTNode::VariableDeclaration(is_let, identifier, value) => {
+            ASTNode::VariableDeclaration(is_let, identifier, type_id, value) => {
                 self.eval_variable_declaration(
                     is_let.clone(),
                     identifier.clone(),
+                    type_id.clone(),
                     *value.clone(),
                     scope,
                 );
@@ -229,6 +230,7 @@ impl<'a> Interpreter {
         &self,
         is_immut: bool,
         identifier: String,
+        type_id: String,
         value: ASTNode,
         scope: RuntimeScopeW,
     ) {
@@ -236,7 +238,7 @@ impl<'a> Interpreter {
         scope
             .write()
             .unwrap()
-            .declare_variable(identifier, eval, is_immut)
+            .declare_variable(identifier, type_id, eval, is_immut)
     }
     //
     fn eval_variable_assignment(
@@ -299,7 +301,7 @@ impl<'a> Interpreter {
                 dbg!(arg, &args[i]);
                 let ev = self.eval(&args[i], scope.clone());
                 argu = ev.clone();
-                new_scope.declare_variable(arg.clone(), ev, true);
+                new_scope.declare_variable(arg.clone(), "1MOSA_UNDEFINED".to_string(), ev, true);
             }
 
             let r = self.eval(
