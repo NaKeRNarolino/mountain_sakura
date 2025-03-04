@@ -1,3 +1,7 @@
-use native fn printLn#"mosa-native~>printLn";
+fn sum(a: num, b: num) -> num {
+    a + b
+}
 
-let a: str = ""
+let a = sum(3, "Hello, world");
+
+a

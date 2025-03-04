@@ -295,20 +295,20 @@ impl Interpreter {
 
             let fn_data = new_scope.get_function(identifier).unwrap();
 
-            let mut argu: RuntimeValue = RuntimeValue::Null;
-
             for (i, (arg, data_type)) in fn_data.args.iter().enumerate() {
                 dbg!(arg, &args[i]);
                 let ev = self.eval(&args[i], scope.clone());
-                argu = ev.clone();
-                new_scope.declare_variable(arg.clone(), "1MOSA_UNDEFINED".to_string(), ev, true);
+                let r#type = scope.read().unwrap().get_value_type(&ev);
+                if r#type != data_type.clone() {
+                    panic!("Cannot pass value of type `{}` to function argument `{}` of type `{}`", r#type, arg, data_type)
+                }
+                new_scope.declare_variable(arg.clone(), data_type.clone(), ev, true);
             }
 
             let r = self.eval(
                 &ASTNode::Program(fn_data.body),
                 Arc::new(RwLock::new(new_scope)),
             );
-            dbg!(&r, argu);
             r
         } else {
             let args_ev = args.iter().map(|x| self.eval(x, scope.clone())).collect();
