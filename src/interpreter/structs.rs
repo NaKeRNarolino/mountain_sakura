@@ -7,7 +7,14 @@ pub enum RuntimeValue {
     Null,
     String(String),
     Bool(bool),
+    Iterable(Vec<IterablePair>),
     Complex,
+}
+
+#[derive(Debug, Clone)]
+pub struct IterablePair {
+    pub index: usize,
+    pub value: RuntimeValue,
 }
 
 impl Add for RuntimeValue {
@@ -161,8 +168,27 @@ impl Display for RuntimeValue {
             },
             RuntimeValue::Complex => {
                 String::from("Unable to properly convert the value to a string.")
-            }
+            },
+            RuntimeValue::Iterable(v) => format!("{:?}", v)
         };
         write!(f, "{}", str)
+    }
+}
+
+impl RuntimeValue {
+    pub fn cast_number(&self) -> Option<f64> {
+        if let RuntimeValue::Number(l) = self {
+            Some(l.clone())
+        } else {
+            None
+        }
+    }
+
+    pub fn cast_iterable(&self) -> Option<&Vec<IterablePair>> {
+        if let RuntimeValue::Iterable(l) = self {
+            Some(l)
+        } else {
+            None
+        }
     }
 }

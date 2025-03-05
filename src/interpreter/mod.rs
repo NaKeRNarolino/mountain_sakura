@@ -2,8 +2,8 @@ pub mod scope;
 pub mod structs;
 
 use crate::interpreter::scope::{FnArgs, RuntimeScope};
-use crate::interpreter::structs::RuntimeValue;
-use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, IfStatement, OnceStatement, Operand, UseNative};
+use crate::interpreter::structs::{IterablePair, RuntimeValue};
+use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, ForStatement, IfStatement, OnceStatement, Operand, UseNative};
 use std::cell::RefCell;
 use std::ptr::eq;
 use std::rc::Rc;
@@ -99,6 +99,13 @@ impl Interpreter {
                 self.eval_define_native_fn(use_native, scope);
                 RuntimeValue::Null
             },
+            ASTNode::BindingAccess(name) => {
+                self.eval_binding_access(name, scope)
+            },
+            ASTNode::ForStatement(stmt) => {
+                self.eval_for_statement(stmt, scope);
+                RuntimeValue::Null
+            },
         }
     }
 
@@ -149,6 +156,7 @@ impl Interpreter {
                 self.eval_comparison_expression(binary_expression, false, false, scope)
             }
             Operand::Equal => RuntimeValue::Null,
+            Operand::DoubleDot => self.eval_double_dot_expressions(binary_expression, scope),
         }
     }
 
@@ -258,9 +266,11 @@ impl Interpreter {
         scope: RuntimeScopeW,
     ) {
         let count_rv = self.eval(&count, scope.clone());
+        let scope_bound = Arc::new(RwLock::new(RuntimeScope::new(Some(scope))));
         if let RuntimeValue::Number(count) = count_rv {
-            for _ in 0..count.floor().abs() as u32 {
-                self.eval(&operation, scope.clone());
+            for idx in 0..count.floor().abs() as u32 {
+                scope_bound.write().unwrap().assign_binding(String::from("index"), RuntimeValue::Number(idx as f64));
+                self.eval(&operation, scope_bound.clone());
             }
         } else {
             panic!("The value on the right of the repeat operator (?:) cannot be evaluated into a number.");
@@ -286,7 +296,7 @@ impl Interpreter {
         args: Vec<ASTNode>,
         scope: RuntimeScopeW,
     ) -> RuntimeValue {
-        dbg!(&&identifier);
+        // dbg!(&&identifier);
         let native = scope.read().unwrap().get_native_function_from_ident(identifier.clone()).is_some();
 
 
@@ -400,5 +410,56 @@ impl Interpreter {
         );
         
         res
+    }
+
+    fn eval_binding_access(&self, name: &String, scope: RuntimeScopeW) -> RuntimeValue {
+        scope.read().unwrap().get_binding(name).unwrap()
+    }
+
+    fn eval_double_dot_expressions(
+        &self,
+        expr: BinaryExpression,
+        scope: RuntimeScopeW,
+    ) -> RuntimeValue {
+        let lv = self.eval(&expr.left, scope.clone());
+        let rv = self.eval(&expr.right, scope.clone());
+
+        let r = rv.cast_number().expect("Cannot get number from the expression.");
+        let l = lv.cast_number().expect("Cannot get number from the expression.");
+
+        let mut vec = vec![
+            IterablePair {
+                index: 0,
+                value: RuntimeValue::Null
+            }; (r - l).floor() as usize
+        ];
+
+        for (idx, val) in vec.iter_mut().enumerate() {
+            *val = IterablePair {
+                index: idx,
+                value: RuntimeValue::Number(l.floor() + idx as f64)
+            }
+        };
+
+        RuntimeValue::Iterable(vec)
+    }
+
+    fn eval_for_statement(&self, stmt: &ForStatement, scope: RuntimeScopeW) {
+        let scope_bound = RuntimeScope::arc_rwlock_new(Some(scope.clone()));
+
+        let ev_iterable = self.eval(&stmt.iterable, scope.clone());
+        
+        let iterable = ev_iterable.cast_iterable().expect("Cannot get iterable from the expression!");
+
+        for val in iterable.iter() {
+            scope_bound.write().unwrap().assign_binding(
+                String::from("index"), RuntimeValue::Number(val.index as f64)
+            );
+            scope_bound.write().unwrap().assign_binding(
+                String::from("value"), val.value.clone()
+            );
+            
+            self.eval(&stmt.block, scope_bound.clone());
+        }
     }
 }

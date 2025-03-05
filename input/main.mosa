@@ -1,7 +1,12 @@
-fn sum(a: num, b: num) -> num {
-    a + b
+use native fn print#"mosa-native~>print";
+use native fn printLn#"mosa-native~>printLn";
+
+for 10..20 {
+    "Value: " ->> print;
+    ^value ->> print;
+    " Index: " ->> print;
+    ^index ->> printLn;
 }
 
-let a = sum(3, "Hello, world");
-
+let a = 3+5;
 a

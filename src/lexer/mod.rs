@@ -174,6 +174,7 @@ pub fn tokenize(raw_input: String) -> VecDeque<Token> {
                     number_str.push(char);
 
                     if input_chars.is_empty()
+                        || (input_chars[0] == '.' && input_chars.get(1).unwrap_or(&'.').clone() == '.')
                         || (!input_chars[0].is_numeric() && input_chars[0] != '.')
                         || is_skippable(input_chars[0])
                     {
@@ -193,6 +194,7 @@ pub fn tokenize(raw_input: String) -> VecDeque<Token> {
 
                         if input_chars.is_empty()
                             || (!input_chars[0].is_numeric() && input_chars[0] != '.')
+                            || (input_chars[0] == '.' && input_chars.get(1).unwrap_or(&'.').clone() == '.')
                             || is_skippable(input_chars[0])
                         {
                             if number_str.chars().last().unwrap_or('!') == '\r' {
@@ -203,6 +205,8 @@ pub fn tokenize(raw_input: String) -> VecDeque<Token> {
                                 number_str.push('.');
                                 number_str.push('0');
                             }
+
+                            dbg!(&number_str);
 
                             tokens.push(Token::Number(number_str.parse::<f64>().unwrap()));
 

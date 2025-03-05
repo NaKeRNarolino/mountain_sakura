@@ -55,7 +55,7 @@ pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
         ("immut", KeywordType::Immut),
         ("once", KeywordType::Once),
         ("native", KeywordType::Native),
-        ("block", KeywordType::Block)
+        ("block", KeywordType::Block),
     ])
 }
 
@@ -100,7 +100,7 @@ pub enum SignType {
     Arrow,                 // ->
     BackwardArrow,         // <-
     ExclamationMk,         // !
-    QuestionMk,            // ?,
+    QuestionMk,            // ?
     Paren(Direction),      // ( )
     Brace(Direction),      // [ ]
     CurlyBrace(Direction), // { }
@@ -110,6 +110,8 @@ pub enum SignType {
     Equality,              // ==
     Inequality,            // !=
     HashSign,              // #
+    Caret,                 // ^
+    DoubleDot,             // ..
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -127,7 +129,8 @@ pub fn simple_sign_types() -> HashMap<char, SignType> {
         ('?', SignType::QuestionMk),
         (':', SignType::Colon),
         ('!', SignType::ExclamationMk),
-        ('#', SignType::HashSign)
+        ('#', SignType::HashSign),
+        ('^', SignType::Caret)
     ])
 }
 
@@ -204,5 +207,10 @@ pub fn two_element_signs_conversions() -> Vec<TwoElementSignsConversion> {
             second: Token::Sign(SignType::Colon),
             result: Token::Operator(OperatorType::Repeat),
         }, // ?:
+        TwoElementSignsConversion {
+            first: Token::Sign(SignType::Dot),
+            second: Token::Sign(SignType::Dot),
+            result: Token::Sign(SignType::DoubleDot),
+        }, // ..
     ]
 }

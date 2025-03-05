@@ -14,18 +14,26 @@ pub enum ASTNode {
     VariableAssignment(String, Box<ASTNode>),
     RepeatOperation(Box<ASTNode>, Box<ASTNode>),
     FunctionDeclaration(String, HashMap<String, String>, Box<ASTNode>),
+    BindingAccess(String),
     CodeBlock(Vec<ASTNode>),
     FunctionCall(String, Vec<ASTNode>),
     IfStatement(IfStatement),
     OnceStatement(OnceStatement),
     UseNative(UseNative),
     Misc(MiscNodeType),
+    ForStatement(ForStatement)
 }
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct OnceStatement {
     pub if_statements: Vec<IfStatement>,
     pub else_block: Option<Box<ASTNode>>,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct ForStatement {
+    pub iterable: Box<ASTNode>,
+    pub block: Box<ASTNode>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -75,6 +83,7 @@ pub enum Operand {
     BiggerEqual,
     SmallerEqual,
     Equal,
+    DoubleDot
 }
 
 #[derive(Clone, PartialEq, Debug)]

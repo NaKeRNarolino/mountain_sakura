@@ -27,6 +27,13 @@ fn main() {
     dbg!(ast);
 
     let mut scope = RuntimeScope::new(None);
+
+    scope.declare_variable(
+        String::from("?index"),
+        String::from("num"),
+        RuntimeValue::Number(10.0),
+        true
+    );
     
     scope.add_native_function(String::from("mosa-native~>printLn"), Arc::new(|args| {
         println!("{}", args[0]);
@@ -36,18 +43,6 @@ fn main() {
     scope.add_native_function(String::from("mosa-native~>print"), Arc::new(|args| {
         print!("{}", args[0]);
         RuntimeValue::Null
-    }));
-
-    scope.add_native_function(String::from("mosa-native~>sum"), Arc::new(|args| {
-        if let RuntimeValue::Number(f) = &args[0] {
-            if let RuntimeValue::Number(s) = &args[1] {
-                RuntimeValue::Number(f + s)
-            } else {
-                panic!("Expected a number!")
-            }
-        } else {
-            panic!("Expected a Number!")
-        }
     }));
     
     //

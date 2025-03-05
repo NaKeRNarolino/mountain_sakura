@@ -27,7 +27,8 @@ pub struct RuntimeScope {
     variables: HashMap<String, VariableData>,
     functions: HashMap<String, FunctionData>,
     native_functions: HashMap<String, Arc<dyn Fn(Vec<RuntimeValue>)->RuntimeValue>>,
-    defined_native_functions: HashMap<String, String>
+    defined_native_functions: HashMap<String, String>,
+    bindings: HashMap<String, RuntimeValue>
 }
 
 impl RuntimeScope {
@@ -38,7 +39,12 @@ impl RuntimeScope {
             functions: Default::default(),
             native_functions: Default::default(),
             defined_native_functions: Default::default(),
+            bindings: Default::default(),
         }
+    }
+    
+    pub fn arc_rwlock_new(parent: Option<Arc<RwLock<RuntimeScope>>>) -> Arc<RwLock<Self>> {
+        Arc::new(RwLock::new(Self::new(parent)))
     }
 
     pub fn declare_variable(&mut self, name: String, type_id: String, value: RuntimeValue, is_immut: bool) {
@@ -97,6 +103,22 @@ impl RuntimeScope {
                 parent.write().unwrap().assign_variable(name, value)
             } else {
                 panic!("Cannot assign the variable {}, as it's not declared", name)
+            }
+        }
+    }
+
+    pub fn assign_binding(&mut self, name: String, value: RuntimeValue) {
+        self.bindings.insert(name, value);
+    }
+
+    pub fn get_binding(&self, name: &String) -> Option<RuntimeValue> {
+        if let Some(binding) = self.bindings.get(name) {
+            Some(binding.clone())
+        } else {
+            if let Some(parent) = &self.parent {
+                parent.read().unwrap().get_binding(name)
+            } else {
+                panic!("Cannot find binding ^{} in this context.", name)
             }
         }
     }
@@ -163,7 +185,8 @@ impl RuntimeScope {
             RuntimeValue::Null => { "null".to_string() }
             RuntimeValue::String(_) => { "str".to_string() }
             RuntimeValue::Bool(_) => { "bool".to_string() }
-            RuntimeValue::Complex => { "complex".to_string() }
+            RuntimeValue::Complex => { "complex".to_string() },
+            RuntimeValue::Iterable(_) => { "iterable".to_string() }
         }
     }
 }

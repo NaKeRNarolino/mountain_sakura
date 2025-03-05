@@ -3,6 +3,8 @@ use crate::lexer::tokenize;
 use crate::parser::structs::ASTNode::Expression;
 use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, IfStatement, Operand};
 use std::collections::{HashMap, VecDeque};
+use crate::parser::structs::ForStatement;
+use crate::lexer::structs::Token::Operator;
 use crate::parser::structs::UseNative;
 use crate::parser::structs::OnceStatement;
 
@@ -68,14 +70,15 @@ impl Parser {
                 KeywordType::Block => {
                     self.go(); // `block`
                     self.parse_code_block()
-                }
+                },
+                KeywordType::For => self.parse_for_expression(),
                 _ => ASTNode::Expression(ExpressionType::Null),
             },
             Token::Identifier(_) => {
                 if self.peek() == Token::Operator(OperatorType::Equal) {
                     self.parse_variable_assignment()
                 } else {
-                    self.parse_add_expressions()
+                    self.parse_start_expr()
                 }
             }
             Token::Boolean(value) => {
@@ -93,10 +96,10 @@ impl Parser {
                 if sign_type == SignType::Paren(Direction::Open) {
                     self.parse_repeat_expression()
                 } else {
-                    self.parse_add_expressions()
+                    self.parse_start_expr()
                 }
             }
-            _ => self.parse_add_expressions(),
+            _ => self.parse_start_expr(),
         }
     }
 
@@ -133,6 +136,8 @@ impl Parser {
             if let SignType::Semicolon = sign_type {
                 self.go();
                 return Some(ASTNode::Expression(ExpressionType::Null));
+            } else if sign_type == SignType::Caret {
+                return Some(self.parse_binding_access())
             } else {
                 if sign_type != SignType::CurlyBrace(Direction::Close) {
                     self.go();
@@ -141,6 +146,34 @@ impl Parser {
         }
 
         res
+    }
+
+    fn parse_start_expr(&mut self) -> ASTNode {
+        self.parse_double_dot_expressions()
+    }
+
+    fn parse_double_dot_expressions(&mut self) -> ASTNode {
+        let mut left = self.parse_add_expressions();
+        let token = self.curr();
+
+        while token == Token::Sign(SignType::DoubleDot)
+        {
+            let operator = self.curr();
+            if operator != Token::Sign(SignType::DoubleDot) {
+                break;
+            }
+            self.go();
+            let operand = Operand::DoubleDot;
+            let right = self.parse_add_expressions();
+
+            left = ASTNode::Expression(ExpressionType::Binary(Box::new(BinaryExpression {
+                left: Box::new(left),
+                right: Box::new(right),
+                operand,
+            })))
+        }
+
+        left
     }
 
     fn parse_add_expressions(&mut self) -> ASTNode {
@@ -682,5 +715,29 @@ impl Parser {
         } else {
             unreachable!()
         }
+    }
+
+    fn parse_binding_access(&mut self) -> ASTNode {
+        self.go(); // `^`
+
+        if let Token::Identifier(identifier) = self.go() {
+            ASTNode::BindingAccess(identifier)
+        } else {
+            panic!("Expected an identifier for binding access")
+        }
+    }
+    
+    fn parse_for_expression(&mut self) -> ASTNode {
+        self.go(); // `for`
+        
+        let iterable = self.parse_expressions();
+        let block = self.parse_code_block();
+        
+        ASTNode::ForStatement(
+            ForStatement {
+                iterable: Box::new(iterable),
+                block: Box::new(block),
+            }
+        )
     }
 }
