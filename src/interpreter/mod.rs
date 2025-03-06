@@ -2,13 +2,14 @@ pub mod scope;
 pub mod structs;
 
 use crate::interpreter::scope::{FnArgs, RuntimeScope};
-use crate::interpreter::structs::{IterablePair, RuntimeValue};
+use crate::interpreter::structs::{EnumData, IterablePair, RuntimeValue};
 use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, ForStatement, IfStatement, OnceStatement, Operand, UseNative};
 use std::cell::RefCell;
 use std::ptr::eq;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 use uuid::Uuid;
+use crate::interpreter::structs::ComplexRuntimeValue;
 
 pub struct Interpreter {
     program: Vec<ASTNode>,
@@ -106,6 +107,14 @@ impl Interpreter {
                 self.eval_for_statement(stmt, scope);
                 RuntimeValue::Null
             },
+            ASTNode::EnumAccessor(enum_id, entry) => self.eval_enum_access(enum_id, entry, scope),
+            ASTNode::EnumDeclaration(name, entries) => {
+                self.eval_enum_declaration(name, entries, scope);
+                RuntimeValue::Null
+            },
+            ASTNode::Typeof(v) => {
+                self.eval_typeof(v, scope)
+            }
         }
     }
 
@@ -461,5 +470,34 @@ impl Interpreter {
             
             self.eval(&stmt.block, scope_bound.clone());
         }
+    }
+
+    fn eval_enum_access(&self, enum_id: &String, entry: &String, scope: RuntimeScopeW) -> RuntimeValue {
+        if let Some(val) = scope.read().unwrap().get_enum_data(enum_id) {
+            if val.entries.contains(entry) {
+                RuntimeValue::Complex(
+                    ComplexRuntimeValue::Enum(EnumData {
+                        enum_id: enum_id.clone(),
+                        entry: entry.clone(),
+                    })
+                )
+            } else {
+                panic!("Enum `{}` does not have entry named `{}`", enum_id, entry)
+            }
+        } else {
+            panic!("Enum `{}` does not exist in this scope.", enum_id)
+        }
+    }
+
+    fn eval_enum_declaration(&self, name: &String, entries: &Vec<String>, scope: RuntimeScopeW) {
+        scope.write().unwrap().declare_enum(
+            name.clone(), entries.clone()
+        )
+    }
+
+    fn eval_typeof(&self, v: &Box<ASTNode>, scope: RuntimeScopeW) -> RuntimeValue {
+        let ev = self.eval(v, scope.clone());
+
+        RuntimeValue::String(scope.read().unwrap().get_value_type(&ev))
     }
 }

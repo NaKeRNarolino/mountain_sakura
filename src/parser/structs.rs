@@ -21,7 +21,10 @@ pub enum ASTNode {
     OnceStatement(OnceStatement),
     UseNative(UseNative),
     Misc(MiscNodeType),
-    ForStatement(ForStatement)
+    ForStatement(ForStatement),
+    EnumAccessor(String, String),
+    EnumDeclaration(String, Vec<String>),
+    Typeof(Box<ASTNode>),
 }
 
 #[derive(Clone, PartialEq, Debug)]

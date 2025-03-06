@@ -33,7 +33,8 @@ pub enum KeywordType {
     Immut,
     Once,
     Native,
-    Block
+    Block,
+    Layout
 }
 
 pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
@@ -55,7 +56,7 @@ pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
         ("immut", KeywordType::Immut),
         ("once", KeywordType::Once),
         ("native", KeywordType::Native),
-        ("block", KeywordType::Block),
+        ("block", KeywordType::Block)
     ])
 }
 
@@ -112,6 +113,7 @@ pub enum SignType {
     HashSign,              // #
     Caret,                 // ^
     DoubleDot,             // ..
+    SlashArrow,            // />
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -212,5 +214,10 @@ pub fn two_element_signs_conversions() -> Vec<TwoElementSignsConversion> {
             second: Token::Sign(SignType::Dot),
             result: Token::Sign(SignType::DoubleDot),
         }, // ..
+        TwoElementSignsConversion {
+            first: Token::Operator(OperatorType::Divide),
+            second: Token::Operator(OperatorType::Bigger),
+            result: Token::Sign(SignType::SlashArrow),
+        }, // />
     ]
 }

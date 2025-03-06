@@ -30,7 +30,7 @@ fn resolve_string_to_token(input: String) -> Token {
 pub fn tokenize(raw_input: String) -> VecDeque<Token> {
     let mut tokens: Vec<Token> = vec![];
 
-    let input = RegexBuilder::new(r"[\\/].*").build().unwrap().replace_all(
+    let input = RegexBuilder::new(r"(\/\/).*").build().unwrap().replace_all(
         &raw_input,
         ""
     ).to_string();
@@ -125,7 +125,7 @@ pub fn tokenize(raw_input: String) -> VecDeque<Token> {
                 }
             } else {
                 // STRINGS OR NUMBERS
-                if char.is_alphabetic() && !char.is_numeric() {
+                if char.is_alphabetic() && !char.is_numeric() || input_chars[0] == '_' {
                     let mut identifier_string = String::new();
 
                     identifier_string.push(char);

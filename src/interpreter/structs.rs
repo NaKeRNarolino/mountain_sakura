@@ -8,14 +8,28 @@ pub enum RuntimeValue {
     String(String),
     Bool(bool),
     Iterable(Vec<IterablePair>),
-    Complex,
+    Complex(ComplexRuntimeValue),
 }
+
+#[derive(Debug, Clone)]
+pub enum ComplexRuntimeValue {
+    Enum(EnumData),
+    Layout
+}
+
 
 #[derive(Debug, Clone)]
 pub struct IterablePair {
     pub index: usize,
     pub value: RuntimeValue,
 }
+
+#[derive(Debug, Clone)]
+pub struct EnumData {
+    pub enum_id: String,
+    pub entry: String
+}
+
 
 impl Add for RuntimeValue {
     type Output = RuntimeValue;
@@ -115,6 +129,12 @@ impl PartialEq for RuntimeValue {
             } else {
                 false
             }
+        } else if let RuntimeValue::Complex(t) = self.clone() {
+            if let RuntimeValue::Complex(k) = other.clone() {
+                t.eq(&k)
+            } else {
+                false
+            }
         } else {
             false
         }
@@ -166,7 +186,7 @@ impl Display for RuntimeValue {
                     "false"
                 })
             },
-            RuntimeValue::Complex => {
+            RuntimeValue::Complex(_) => {
                 String::from("Unable to properly convert the value to a string.")
             },
             RuntimeValue::Iterable(v) => format!("{:?}", v)
@@ -189,6 +209,20 @@ impl RuntimeValue {
             Some(l)
         } else {
             None
+        }
+    }
+}
+
+impl PartialEq for ComplexRuntimeValue {
+    fn eq(&self, other: &Self) -> bool {
+        if let Self::Enum(l) = self.clone() {
+            if let Self::Enum(r) = other.clone() {
+                l.enum_id == r.enum_id && l.entry == r.entry
+            } else {
+                false
+            }
+        } else {
+            false
         }
     }
 }

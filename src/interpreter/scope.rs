@@ -1,4 +1,4 @@
-use crate::interpreter::structs::RuntimeValue;
+use crate::interpreter::structs::{ComplexRuntimeValue, RuntimeValue};
 use crate::lexer::structs::KeywordType::Has;
 use crate::parser::structs::ASTNode;
 use std::cell::RefCell;
@@ -22,13 +22,20 @@ pub struct FunctionData {
     pub body: Vec<ASTNode>,
 }
 
+#[derive(Clone)]
+pub struct EnumDefinition {
+    pub name: String,
+    pub entries: Vec<String>
+}
+
 pub struct RuntimeScope {
     parent: Option<Arc<RwLock<RuntimeScope>>>,
     variables: HashMap<String, VariableData>,
     functions: HashMap<String, FunctionData>,
     native_functions: HashMap<String, Arc<dyn Fn(Vec<RuntimeValue>)->RuntimeValue>>,
     defined_native_functions: HashMap<String, String>,
-    bindings: HashMap<String, RuntimeValue>
+    bindings: HashMap<String, RuntimeValue>,
+    enums: HashMap<String, EnumDefinition>
 }
 
 impl RuntimeScope {
@@ -40,6 +47,7 @@ impl RuntimeScope {
             native_functions: Default::default(),
             defined_native_functions: Default::default(),
             bindings: Default::default(),
+            enums: Default::default(),
         }
     }
     
@@ -185,8 +193,33 @@ impl RuntimeScope {
             RuntimeValue::Null => { "null".to_string() }
             RuntimeValue::String(_) => { "str".to_string() }
             RuntimeValue::Bool(_) => { "bool".to_string() }
-            RuntimeValue::Complex => { "complex".to_string() },
+            RuntimeValue::Complex(x) => {
+                if let ComplexRuntimeValue::Enum(ed) = x {
+                    ed.enum_id.clone()
+                } else {
+                    "complex".to_string()
+                }
+            },
             RuntimeValue::Iterable(_) => { "iterable".to_string() }
+        }
+    }
+
+    pub fn declare_enum(&mut self, name: String, entries: Vec<String>) {
+        self.enums.insert(name.clone(), EnumDefinition {
+            name,
+            entries,
+        });
+    }
+
+    pub fn get_enum_data(&self, name: &String) -> Option<EnumDefinition> {
+        if let Some(def) = self.enums.get(name) {
+            Some(def.clone())
+        } else {
+            if let Some(parent) = &self.parent {
+                parent.read().unwrap().get_enum_data(name)
+            } else {
+                None
+            }
         }
     }
 }

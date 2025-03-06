@@ -1,12 +1,18 @@
 use native fn print#"mosa-native~>print";
 use native fn printLn#"mosa-native~>printLn";
 
-for 10..20 {
-    "Value: " ->> print;
-    ^value ->> print;
-    " Index: " ->> print;
-    ^index ->> printLn;
+enum ExampleEnum {
+   First,
+   Second
 }
 
-let a = 3+5;
-a
+let a: ExampleEnum = ExampleEnum/>Second;
+
+let f = typeof a;
+f ->> printLn;
+
+if a == ExampleEnum/>Second {
+    "True!" ->> printLn;
+} else {
+    "False!" ->> printLn;
+}

@@ -58,6 +58,7 @@ impl Parser {
     }
 
     fn parse_expressions(&mut self) -> ASTNode {
+        dbg!(&self.curr());
         match self.curr() {
             Token::Keyword(keyword) => match keyword {
                 KeywordType::Let => self.parse_variable_declaration(),
@@ -72,6 +73,13 @@ impl Parser {
                     self.parse_code_block()
                 },
                 KeywordType::For => self.parse_for_expression(),
+                KeywordType::Enum => self.parse_enum_declaration(),
+                KeywordType::Typeof => {
+                    self.go(); // `typeof`
+                    let v = self.parse_start_expr();
+                    
+                    ASTNode::Typeof(Box::new(v))
+                },
                 _ => ASTNode::Expression(ExpressionType::Null),
             },
             Token::Identifier(_) => {
@@ -131,6 +139,10 @@ impl Parser {
             return Some(ASTNode::Number(v));
         } else if let Token::Identifier(v) = token.clone() {
             self.go();
+            if self.curr() == Token::Sign(SignType::SlashArrow) {
+                dbg!("SLASH ARROW!!");
+                return Some(self.parse_enum_access(&v))
+            }
             return Some(ASTNode::Identifier(v));
         } else if let Token::Sign(sign_type) = token.clone() {
             if let SignType::Semicolon = sign_type {
@@ -739,5 +751,65 @@ impl Parser {
                 block: Box::new(block),
             }
         )
+    }
+
+    fn parse_enum_access(&mut self, entry: &String) -> ASTNode {
+        self.go(); // `/>`
+
+        if let Token::Identifier(identifier) = self.go() {
+            ASTNode::EnumAccessor(entry.clone(), identifier)
+        } else {
+            panic!("Expected an identifier after `/>` to access an entry from enum `{}`", entry)
+        }
+    }
+
+    fn parse_enum_declaration(&mut self) -> ASTNode {
+        self.go(); // `enum`
+
+        if let Token::Identifier(identifier) = self.go() {
+            if self.go() != Token::Sign(SignType::CurlyBrace(Direction::Open)) {
+                panic!("Expected an opening curly brace (`{{`).")
+            }
+
+            let entries = self.parse_enum_entries();
+
+            // if self.go() != Token::Sign(SignType::CurlyBrace(Direction::Close)) {
+            //     panic!("Expected a closing curly brace (`}}`).")
+            // }
+
+            ASTNode::EnumDeclaration(
+                identifier,
+                entries
+            )
+        } else {
+            panic!("Expected enum identifier.")
+        }
+    }
+
+    fn parse_enum_entries(&mut self) -> Vec<String> {
+        let mut res = vec![];
+
+        if let Token::Identifier(id) = self.go() {
+            res.push(id);
+        }
+
+        let mut tk = self.go();
+
+        while tk == Token::Sign(SignType::Comma) && self.curr() != Token::Sign(SignType::CurlyBrace(Direction::Close)) && !self.is_end() {
+            if let Token::Identifier(id) = self.go() {
+                res.push(id);
+            }
+            if self.curr() == Token::Sign(SignType::Comma) {
+                self.go();
+            }
+            tk = self.go();
+            dbg!(&tk);
+        }
+
+        if tk != Token::Sign(SignType::CurlyBrace(Direction::Close)) {
+            panic!("Expected a closing curly brace (`}}`).")
+        }
+
+        res
     }
 }
