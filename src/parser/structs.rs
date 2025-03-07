@@ -1,6 +1,7 @@
 use crate::global::DataType;
 use std::collections::HashMap;
 use std::hash::Hash;
+use crate::interpreter::structs::RuntimeValue;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ASTNode {
@@ -11,7 +12,7 @@ pub enum ASTNode {
     Boolean(bool),
     Identifier(String),
     VariableDeclaration(bool, String, String, Box<ASTNode>),
-    VariableAssignment(String, Box<ASTNode>),
+    Assignment(AssignmentProperty, Box<ASTNode>),
     RepeatOperation(Box<ASTNode>, Box<ASTNode>),
     FunctionDeclaration(String, HashMap<String, String>, Box<ASTNode>),
     BindingAccess(String),
@@ -25,6 +26,16 @@ pub enum ASTNode {
     EnumAccessor(String, String),
     EnumDeclaration(String, Vec<String>),
     Typeof(Box<ASTNode>),
+    LayoutDeclaration(LayoutDeclaration),
+    LayoutCreation(LayoutCreation),
+    LayoutFieldAccess(String, String)
+}
+
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum AssignmentProperty {
+    Variable(String),
+    LayoutField(String, String)
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -53,6 +64,12 @@ pub struct UseNative {
 }
 
 #[derive(Clone, PartialEq, Debug)]
+pub struct LayoutCreation {
+    pub name: String,
+    pub specified_fields: HashMap<String, Box<ASTNode>>
+}
+
+#[derive(Clone, PartialEq, Debug)]
 pub enum MiscNodeType {
     DoubleArrow,
 }
@@ -62,6 +79,18 @@ pub struct BinaryExpression {
     pub left: Box<ASTNode>,
     pub right: Box<ASTNode>,
     pub operand: Operand,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct LayoutDeclaration {
+    pub name: String,
+    pub fields: HashMap<String, FieldParserDescription>
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct FieldParserDescription {
+    pub type_id: String,
+    pub default_value: Option<Box<ASTNode>>
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]

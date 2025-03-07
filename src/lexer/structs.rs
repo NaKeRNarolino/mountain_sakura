@@ -56,7 +56,8 @@ pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
         ("immut", KeywordType::Immut),
         ("once", KeywordType::Once),
         ("native", KeywordType::Native),
-        ("block", KeywordType::Block)
+        ("block", KeywordType::Block),
+        ("layout", KeywordType::Layout)
     ])
 }
 

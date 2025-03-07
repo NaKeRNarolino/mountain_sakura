@@ -27,13 +27,6 @@ fn main() {
     dbg!(ast);
 
     let mut scope = RuntimeScope::new(None);
-
-    scope.declare_variable(
-        String::from("?index"),
-        String::from("num"),
-        RuntimeValue::Number(10.0),
-        true
-    );
     
     scope.add_native_function(String::from("mosa-native~>printLn"), Arc::new(|args| {
         println!("{}", args[0]);

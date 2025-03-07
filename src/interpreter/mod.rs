@@ -2,12 +2,13 @@ pub mod scope;
 pub mod structs;
 
 use crate::interpreter::scope::{FnArgs, RuntimeScope};
-use crate::interpreter::structs::{EnumData, IterablePair, RuntimeValue};
-use crate::parser::structs::{ASTNode, BinaryExpression, ExpressionType, ForStatement, IfStatement, OnceStatement, Operand, UseNative};
+use crate::interpreter::structs::{EnumData, IterablePair, LayoutData, RuntimeValue};
+use crate::parser::structs::{ASTNode, AssignmentProperty, BinaryExpression, ExpressionType, ForStatement, IfStatement, LayoutCreation, LayoutDeclaration, OnceStatement, Operand, UseNative};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::ptr::eq;
 use std::rc::Rc;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, MutexGuard, RwLock};
 use uuid::Uuid;
 use crate::interpreter::structs::ComplexRuntimeValue;
 
@@ -64,8 +65,8 @@ impl Interpreter {
                 );
                 RuntimeValue::Null
             }
-            ASTNode::VariableAssignment(identifier, value) => {
-                self.eval_variable_assignment(identifier.clone(), *value.clone(), scope);
+            ASTNode::Assignment(identifier, value) => {
+                self.eval_assignment(identifier.clone(), *value.clone(), scope);
                 RuntimeValue::Null
             }
             ASTNode::RepeatOperation(count, operation) => {
@@ -112,9 +113,13 @@ impl Interpreter {
                 self.eval_enum_declaration(name, entries, scope);
                 RuntimeValue::Null
             },
-            ASTNode::Typeof(v) => {
-                self.eval_typeof(v, scope)
-            }
+            ASTNode::Typeof(v) => self.eval_typeof(v, scope),
+            ASTNode::LayoutDeclaration(v) => {
+                self.eval_layout_declaration(v.clone(), scope);
+                RuntimeValue::Null
+            },
+            ASTNode::LayoutCreation(v) => self.eval_layout_creation(v.clone(), scope),
+            ASTNode::LayoutFieldAccess(name, field) => self.eval_layout_field_access(name.clone(), field.clone(), scope)
         }
     }
 
@@ -258,14 +263,28 @@ impl Interpreter {
             .declare_variable(identifier, type_id, eval, is_immut)
     }
     //
-    fn eval_variable_assignment(
+    fn eval_assignment(
         &self,
-        identifier: String,
+        identifier: AssignmentProperty,
         value: ASTNode,
         scope: RuntimeScopeW,
     ) {
         let v = self.eval(&value, scope.clone());
-        scope.write().unwrap().assign_variable(identifier, v);
+        if let AssignmentProperty::Variable(id) = identifier {
+            scope.write().unwrap().assign_variable(id, v);
+        } else if let AssignmentProperty::LayoutField(name, field) = identifier {
+            let variable = scope.read().unwrap().read_variable(name.clone()).expect(
+                &format!("Cannot find layout variable `{}` in this scope.", &name)
+            );
+
+            let data = self.cast_to_layout_data(variable.clone(), &name);
+
+            if !data.entries.read().unwrap().contains_key(&field) {
+                panic!("Field `{}` does not exist on type `{}`.", &field, &data.layout_id)
+            }
+
+            self.cast_to_layout_data(variable, &name).entries.write().unwrap().insert(field, v);
+        }
     }
     //
     fn eval_repeat_operation(
@@ -499,5 +518,75 @@ impl Interpreter {
         let ev = self.eval(v, scope.clone());
 
         RuntimeValue::String(scope.read().unwrap().get_value_type(&ev))
+    }
+
+    fn eval_layout_declaration(&self, layout_declaration: LayoutDeclaration, scope: RuntimeScopeW) {
+        scope.write().unwrap().declare_layout(layout_declaration)
+    }
+
+    fn eval_layout_creation(&self, layout_creation: LayoutCreation, scope: RuntimeScopeW) -> RuntimeValue {
+        if scope.read().unwrap().get_layout_declaration(&layout_creation.name).is_none() {
+            panic!("Cannot find layout `{}` in current scope.", &layout_creation.name)
+        }
+
+        let decl = scope.read().unwrap().get_layout_declaration(&layout_creation.name).unwrap();
+        
+        let mut fields: HashMap<String, RuntimeValue> = HashMap::new();
+        
+        for (name, data) in decl.fields.clone() {
+            if data.default_value.is_some() {
+                let ev = self.eval(&data.default_value.unwrap(), scope.clone());
+                fields.insert(name, ev);
+            }
+        }
+
+        for (name, data) in layout_creation.specified_fields {
+            let ev = self.eval(&data, scope.clone());
+            
+            if !&decl.fields.contains_key(&name) {
+                panic!("Field `{}` in layout `{}` does not exist.", name, &layout_creation.name)
+            }
+            
+            fields.insert(name, ev);
+        }
+        
+        for (name, _) in decl.fields.clone() {
+            if !fields.contains_key(&name) {
+                panic!("Field `{}` in layout `{}` is not defined when creating and does not have a default value.", name, &layout_creation.name)
+            }
+        }
+        
+        RuntimeValue::Complex(
+            ComplexRuntimeValue::Layout(
+                Arc::new(LayoutData {
+                    layout_id: layout_creation.name,
+                    entries: Arc::new(RwLock::new(fields)),
+                })
+            )
+        )
+    }
+
+    fn eval_layout_field_access(&self, name: String, field: String, scope: RuntimeScopeW) -> RuntimeValue {
+        let variable = scope.read().unwrap().read_variable(name.clone()).expect(
+            &format!("Cannot find layout variable `{}` in this scope.", &name)
+        );
+
+        let data = self.cast_to_layout_data(variable, &name);
+
+        data.entries.clone().read().unwrap().get(&field).expect(
+            &format!("Field `{}` does not exist on type `{}`.", &field, &data.layout_id)
+        ).clone()
+    }
+
+    fn cast_to_layout_data(&self, variable: RuntimeValue, name: &String) -> Arc<LayoutData> {
+        if let RuntimeValue::Complex(complex) = variable {
+            if let ComplexRuntimeValue::Layout(data) = complex {
+                data
+            } else {
+                panic!("Variable `{}` is not a layout.", &name)
+            }
+        } else {
+            panic!("Variable `{}` is not of a complex type.", &name)
+        }
     }
 }

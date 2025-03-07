@@ -1,6 +1,7 @@
-use crate::interpreter::structs::{ComplexRuntimeValue, RuntimeValue};
+use std::alloc::Layout;
+use crate::interpreter::structs::{ComplexRuntimeValue, LayoutData, RuntimeValue};
 use crate::lexer::structs::KeywordType::Has;
-use crate::parser::structs::ASTNode;
+use crate::parser::structs::{ASTNode, LayoutDeclaration};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::process::id;
@@ -35,7 +36,8 @@ pub struct RuntimeScope {
     native_functions: HashMap<String, Arc<dyn Fn(Vec<RuntimeValue>)->RuntimeValue>>,
     defined_native_functions: HashMap<String, String>,
     bindings: HashMap<String, RuntimeValue>,
-    enums: HashMap<String, EnumDefinition>
+    enums: HashMap<String, EnumDefinition>,
+    layouts: HashMap<String, LayoutDeclaration>,
 }
 
 impl RuntimeScope {
@@ -48,6 +50,7 @@ impl RuntimeScope {
             defined_native_functions: Default::default(),
             bindings: Default::default(),
             enums: Default::default(),
+            layouts: Default::default(),
         }
     }
     
@@ -196,6 +199,8 @@ impl RuntimeScope {
             RuntimeValue::Complex(x) => {
                 if let ComplexRuntimeValue::Enum(ed) = x {
                     ed.enum_id.clone()
+                } else if let ComplexRuntimeValue::Layout(ld) = x {
+                    ld.layout_id.clone()
                 } else {
                     "complex".to_string()
                 }
@@ -217,6 +222,22 @@ impl RuntimeScope {
         } else {
             if let Some(parent) = &self.parent {
                 parent.read().unwrap().get_enum_data(name)
+            } else {
+                None
+            }
+        }
+    }
+
+    pub fn declare_layout(&mut self, layout_info: LayoutDeclaration) {
+        self.layouts.insert(layout_info.name.clone(), layout_info);
+    }
+
+    pub fn get_layout_declaration(&self, name: &String) -> Option<LayoutDeclaration> {
+        if let Some(layout) = self.layouts.get(name) {
+            Some(layout.clone())
+        } else {
+            if let Some(parent) = &self.parent {
+                parent.read().unwrap().get_layout_declaration(name)
             } else {
                 None
             }

@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Sub};
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone)]
 pub enum RuntimeValue {
@@ -14,7 +16,7 @@ pub enum RuntimeValue {
 #[derive(Debug, Clone)]
 pub enum ComplexRuntimeValue {
     Enum(EnumData),
-    Layout
+    Layout(Arc<LayoutData>)
 }
 
 
@@ -23,12 +25,18 @@ pub struct IterablePair {
     pub index: usize,
     pub value: RuntimeValue,
 }
-
 #[derive(Debug, Clone)]
 pub struct EnumData {
     pub enum_id: String,
     pub entry: String
 }
+
+#[derive(Debug, Clone)]
+pub struct LayoutData {
+    pub layout_id: String,
+    pub entries: Arc<RwLock<HashMap<String, RuntimeValue>>>
+}
+
 
 
 impl Add for RuntimeValue {
