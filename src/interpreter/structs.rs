@@ -219,6 +219,22 @@ impl RuntimeValue {
             None
         }
     }
+
+    pub fn cast_string(&self) -> Option<&String> {
+        if let RuntimeValue::String(l) = self {
+            Some(l)
+        } else {
+            None
+        }
+    }
+
+    pub fn cast_bool(&self) -> Option<&bool> {
+        if let RuntimeValue::Bool(l) = self {
+            Some(l)
+        } else {
+            None
+        }
+    }
 }
 
 impl PartialEq for ComplexRuntimeValue {
