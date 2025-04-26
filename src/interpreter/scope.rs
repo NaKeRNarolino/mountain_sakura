@@ -8,12 +8,14 @@ use std::process::id;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use uuid::Uuid;
+use crate::global::ComplexDataType;
+use crate::global::{DataType, NumType, PrimitiveDataType};
 
-pub type FnArgs = HashMap<String, String>;
+pub type FnArgs = HashMap<String, DataType>;
 
 pub struct VariableData {
     pub value: RwLock<RuntimeValue>,
-    pub type_id: String,
+    pub type_id: DataType,
     pub immut: bool,
 }
 
@@ -58,16 +60,16 @@ impl RuntimeScope {
         Arc::new(RwLock::new(Self::new(parent)))
     }
 
-    pub fn declare_variable(&mut self, name: String, type_id: String, value: RuntimeValue, is_immut: bool) {
+    pub fn declare_variable(&mut self, name: String, type_id: DataType, value: RuntimeValue, is_immut: bool) {
         let value_type = self.get_value_type(&value);
-        if type_id.clone() != "1MOSA_UNDEFINED" && type_id.clone() != value_type {
+        if type_id != DataType::InternalInfer && !type_id.matches(&value_type) {
             panic!("Cannot declare variable `{}` of type `{}` with value of type `{}`", &name, &type_id, value_type)
         }
         self.variables.insert(
             name,
             VariableData {
                 immut: is_immut,
-                type_id: if type_id == "1MOSA_UNDEFINED" {
+                type_id: if type_id == DataType::InternalInfer {
                     value_type
                 } else {
                     type_id.clone()
@@ -190,22 +192,24 @@ impl RuntimeScope {
         }
     }
 
-    pub fn get_value_type(&self, value: &RuntimeValue) -> String {
+    pub fn get_value_type(&self, value: &RuntimeValue) -> DataType {
         match value {
-            RuntimeValue::Number(_) => { "num".to_string() }
-            RuntimeValue::Null => { "null".to_string() }
-            RuntimeValue::String(_) => { "str".to_string() }
-            RuntimeValue::Bool(_) => { "bool".to_string() }
+            RuntimeValue::Number(_) => DataType::Primitive(PrimitiveDataType::Num(NumType::Dynamic)),
+            RuntimeValue::Null => DataType::Primitive(PrimitiveDataType::Null),
+            RuntimeValue::String(_) => DataType::Primitive(PrimitiveDataType::Str),
+            RuntimeValue::Bool(_) => DataType::Primitive(PrimitiveDataType::Bool),
             RuntimeValue::Complex(x) => {
                 if let ComplexRuntimeValue::Enum(ed) = x {
-                    ed.enum_id.clone()
+                    DataType::Complex(ComplexDataType::LayoutOrEnum(ed.enum_id.clone()))
                 } else if let ComplexRuntimeValue::Layout(ld) = x {
-                    ld.layout_id.clone()
+                    DataType::Complex(ComplexDataType::LayoutOrEnum(ld.layout_id.clone()))
                 } else {
-                    "complex".to_string()
+                    DataType::Complex(ComplexDataType::Indefinite)
                 }
             },
-            RuntimeValue::Iterable(_) => { "iterable".to_string() }
+            RuntimeValue::Iterable(_) => DataType::Primitive(PrimitiveDataType::Iterable(
+                Box::new(DataType::Primitive(PrimitiveDataType::Num(NumType::Dynamic)))
+            ))
         }
     }
 

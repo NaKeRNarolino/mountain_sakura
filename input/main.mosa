@@ -1,3 +1,6 @@
 use native fn print#"mosa-native~>print";
 use native fn printLn#"mosa-native~>printLn";
 
+let data: nul num = 10.0;
+
+data

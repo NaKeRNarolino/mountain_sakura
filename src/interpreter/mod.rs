@@ -10,6 +10,7 @@ use std::ptr::eq;
 use std::rc::Rc;
 use std::sync::{Arc, MutexGuard, RwLock};
 use uuid::Uuid;
+use crate::global::DataType;
 use crate::interpreter::structs::ComplexRuntimeValue;
 
 pub struct Interpreter {
@@ -73,7 +74,7 @@ impl Interpreter {
                 self.eval_repeat_operation(*count.clone(), *operation.clone(), scope);
                 RuntimeValue::Null
             }
-            ASTNode::FunctionDeclaration(identifier, args, body) => {
+            ASTNode::FunctionDeclaration(identifier, args, body, data_type) => {
                 if let ASTNode::CodeBlock(body_code) = *body.clone() {
                     self.eval_fn_declaration(identifier.clone(), args.clone(), body_code, scope);
                     RuntimeValue::Null
@@ -252,7 +253,7 @@ impl Interpreter {
         &self,
         is_immut: bool,
         identifier: String,
-        type_id: String,
+        type_id: DataType,
         value: ASTNode,
         scope: RuntimeScopeW,
     ) {
@@ -517,7 +518,7 @@ impl Interpreter {
     fn eval_typeof(&self, v: &Box<ASTNode>, scope: RuntimeScopeW) -> RuntimeValue {
         let ev = self.eval(v, scope.clone());
 
-        RuntimeValue::String(scope.read().unwrap().get_value_type(&ev))
+        RuntimeValue::String(scope.read().unwrap().get_value_type(&ev).to_string())
     }
 
     fn eval_layout_declaration(&self, layout_declaration: LayoutDeclaration, scope: RuntimeScopeW) {

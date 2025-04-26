@@ -4,6 +4,8 @@ use crate::parser::Parser;
 use std::fs;
 use std::sync::Arc;
 use std::time::Instant;
+use crate::global::DataType;
+use crate::global::PrimitiveDataType;
 use crate::interpreter::structs::RuntimeValue;
 
 pub mod global;
@@ -27,6 +29,8 @@ fn main() {
     dbg!(ast);
 
     let mut scope = RuntimeScope::new(None);
+    
+    scope.declare_variable("null".to_string(), DataType::Primitive(PrimitiveDataType::Null), RuntimeValue::Null, true);
     
     scope.add_native_function(String::from("mosa-native~>printLn"), Arc::new(|args| {
         println!("{}", args[0]);

@@ -2,6 +2,8 @@ use crate::lexer::structs::{Direction, KeywordType, OperatorType, SignType, Toke
 use crate::lexer::tokenize;
 use crate::parser::structs::{ASTNode, AssignmentProperty, BinaryExpression, ExpressionType, IfStatement, LayoutCreation, Operand};
 use std::collections::{HashMap, VecDeque};
+use std::process::id;
+use crate::global::{DataType, PrimitiveDataType};
 use crate::parser::structs::{FieldParserDescription, LayoutDeclaration};
 use crate::parser::structs::ForStatement;
 use crate::parser::structs::UseNative;
@@ -230,7 +232,6 @@ impl Parser {
         }
 
         let identifier: String;
-        let mut type_id: Option<String> = None;
 
         if let Token::Identifier(ident) = self.go() {
             identifier = ident;
@@ -240,6 +241,8 @@ impl Parser {
             );
         }
         
+        let mut data_type = DataType::InternalInfer;
+        
         if self.curr() != Token::Sign(SignType::Colon) {
             if is_immut {
                 panic!("Cannot declare an immutable variable without a type.")
@@ -247,11 +250,7 @@ impl Parser {
         } else {
             self.go();
             
-            if let Token::Identifier(r#type) = self.go() {
-                type_id = Some(r#type)
-            } else {
-                panic!("Expected a type name after `:`");
-            }
+            data_type = self.parse_data_type();
         }
 
         if self.go() != Token::Operator(OperatorType::Equal) {
@@ -262,7 +261,7 @@ impl Parser {
         
         let expr = self.parse_expressions();
 
-        ASTNode::VariableDeclaration(is_immut, identifier, type_id.unwrap_or(String::from("1MOSA_UNDEFINED")), Box::new(expr))
+        ASTNode::VariableDeclaration(is_immut, identifier, data_type, Box::new(expr))
     }
 
     fn parse_multiply_expressions(&mut self) -> ASTNode {
@@ -452,21 +451,16 @@ impl Parser {
                     "Expected an arrow (->) after the arguments.",
                 );
 
-                let data_type_token = self.go();
+                let data_type = self.parse_data_type();
+                
+                self.expect_token(
+                    Token::Sign(SignType::CurlyBrace(Direction::Open)),
+                    "Expected a code block.",
+                );
+                  
+                let body = self.parse_code_block();
 
-
-                if let Token::Identifier(_data_type) = data_type_token {
-                    self.expect_token(
-                        Token::Sign(SignType::CurlyBrace(Direction::Open)),
-                        "Expected a code block.",
-                    );
-
-                    let body = self.parse_code_block();
-
-                    ASTNode::FunctionDeclaration(identifier, args_list, Box::new(body))
-                } else {
-                    panic!("Expected a data-type");
-                }
+                ASTNode::FunctionDeclaration(identifier, args_list, Box::new(body), data_type)
             } else {
                 panic!("Expected an opening parentheses.")
             }
@@ -475,9 +469,9 @@ impl Parser {
         }
     }
 
-    fn parse_fn_args_list(&mut self) -> HashMap<String, String> {
+    fn parse_fn_args_list(&mut self) -> HashMap<String, DataType> {
         self.go(); // paren
-        let mut args_map: HashMap<String, String> = HashMap::new();
+        let mut args_map: HashMap<String, DataType> = HashMap::new();
         while self.curr() != Token::Sign(SignType::Paren(Direction::Close)) {
             let (arg_name, data_type) = self.parse_fn_arg();
             if self.curr() == Token::Sign(SignType::Comma) {
@@ -489,19 +483,16 @@ impl Parser {
         args_map
     }
 
-    fn parse_fn_arg(&mut self) -> (String, String) {
+    fn parse_fn_arg(&mut self) -> (String, DataType) {
         let identifier_token = self.go();
         // dbg!(identifier_token.clone());
         if let Token::Identifier(identifier) = identifier_token {
             if self.curr() == Token::Sign(SignType::Colon) {
                 self.go(); // colon
 
-                let data_type_token = self.go();
-                if let Token::Identifier(data_type) = data_type_token {
-                    (identifier, data_type)
-                } else {
-                    panic!("Expecting a data type identifier after the color (:)");
-                }
+                let data_type = self.parse_data_type();
+                
+                (identifier, data_type)
             } else {
                 panic!("Expecting a colon (:) after the argument name.")
             }
@@ -573,31 +564,28 @@ impl Parser {
 
     fn parse_double_arrow_signature(&mut self, identifier: String) -> ASTNode {
         self.go(); // ->>
-        if let Token::Identifier(arg_type) = self.go() {
-            self.expect_token(
-                Token::Sign(SignType::Arrow),
-                "Expected an arrow, then a data-type",
-            );
+        
+        let arg_type = self.parse_data_type();
 
-            if let Token::Identifier(data_type) = self.go() {
-                let mut args = HashMap::new();
+        self.expect_token(
+            Token::Sign(SignType::Arrow),
+            "Expected an arrow, then a data-type",
+        );
+        
+        let data_type= self.parse_data_type();
 
-                args.insert(String::from("it"), arg_type);
+        let mut args = HashMap::new();
 
-                self.expect_token(
-                    Token::Sign(SignType::CurlyBrace(Direction::Open)),
-                    "Expected a code block.",
-                );
+        args.insert(String::from("it"), arg_type);
 
-                let body = self.parse_code_block();
+        self.expect_token(
+            Token::Sign(SignType::CurlyBrace(Direction::Open)),
+            "Expected a code block.",
+        );
 
-                ASTNode::FunctionDeclaration(identifier, args, Box::new(body))
-            } else {
-                panic!("Expected an identifier for the result's data-type!")
-            }
-        } else {
-            panic!("Expected an identifier for the argument's data-type!")
-        }
+        let body = self.parse_code_block();
+
+        ASTNode::FunctionDeclaration(identifier, args, Box::new(body), data_type)
     }
 
     fn parse_double_arrow_call(&mut self) -> ASTNode {
@@ -1012,6 +1000,22 @@ impl Parser {
             )
         } else {
             panic!("Expected a field name to access from `{}`.", id)
+        }
+    }
+    
+    fn parse_data_type(&mut self) -> DataType {
+        if let Token::Identifier(ident) = self.go() {
+            if ident == "nul" {
+                let inner = self.parse_data_type();
+                
+                DataType::Primitive(
+                    PrimitiveDataType::Nullable(Box::new(inner))
+                )
+            } else {
+                DataType::from_str(ident)
+            }
+        } else {
+            panic!("Expected an identifier or `nul` for a data type.")
         }
     }
 }
