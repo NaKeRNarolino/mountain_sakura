@@ -80,17 +80,17 @@ layout Layout {
     val3: Num|>I32
 }
 
-exp insert fn to Layout {
-    method fn some_method() -> Num {
+mix Layout {
+    tied fn some_method() -> num {
         this.val + this.val3
     }
 
-    method fn some_other_method() -> Num {
+    tied fn some_other_method() -> num {
         this.val2 * this.val
     }
 
-    fn some_function() -> $this {
-        $this {
+    fn some_function() -> @self {
+        @self {
             val: 0.0,
             val2: "",
             val3: 0
@@ -100,8 +100,8 @@ exp insert fn to Layout {
 
 interface layout Interface;
 insert fn to Interface {
-    fn default() -> $this {
-        $this {
+    fn default() -> @self {
+        @self {
             derive Default
         }
     }

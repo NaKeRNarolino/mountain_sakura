@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter};
 pub enum DataType {
     Primitive(PrimitiveDataType),
     Complex(ComplexDataType),
+    Reference(ReferenceType),
     InternalInfer
 }
 
@@ -69,7 +70,11 @@ impl Display for DataType {
                 ComplexDataType::LayoutOrEnum(v) => v,
                 ComplexDataType::Indefinite => "indefinite"
             }
-            DataType::InternalInfer => unreachable!()
+            DataType::InternalInfer => unreachable!(),
+            DataType::Reference(v) => match v {
+                ReferenceType::Function => "ref[function]",
+                ReferenceType::Null => "ref[null]"
+            }
         };
         write!(f, "{}", str)
     }
@@ -84,6 +89,13 @@ pub enum PrimitiveDataType {
     Nullable(Box<DataType>),
     Null
 }
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ReferenceType { 
+    Function,
+    Null
+}
+
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum NumType {

@@ -1,6 +1,38 @@
 use native fn print#"mosa-native~>print";
 use native fn printLn#"mosa-native~>printLn";
 
-let data: nul num = 10.0;
+//fn hi(v: num) -> null {
+//    "Hi!" ->> print;
+//    " iteration: " ->> print;
+//    print(v + 1);
+//    printLn
+//}
+//
+//let fun = hi;
+//let a = 0;
+//
+//(:=a+1)?:15;
+//
+//a
 
-data
+layout Test {
+    nullable: nul num
+}
+
+mix Test {
+    fn hi() -> str {
+        "Hi!"
+    }
+}
+Test/>hi() + "Hi"
+
+
+
+//let fun: ref[function[null]] = name;
+
+////
+////Test0hi()
+////
+////immut let i: iterable<num> = iterable [ 1, 2, 3 ]
+////immut let k: nul iterable<nul num> = null; |>
+//

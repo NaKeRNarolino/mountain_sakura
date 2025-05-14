@@ -1,17 +1,14 @@
 pub mod scope;
 pub mod structs;
 
-use crate::interpreter::scope::{FnArgs, RuntimeScope};
-use crate::interpreter::structs::{EnumData, IterablePair, LayoutData, RuntimeValue};
-use crate::parser::structs::{ASTNode, AssignmentProperty, BinaryExpression, ExpressionType, ForStatement, IfStatement, LayoutCreation, LayoutDeclaration, OnceStatement, Operand, UseNative};
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::ptr::eq;
-use std::rc::Rc;
-use std::sync::{Arc, MutexGuard, RwLock};
-use uuid::Uuid;
 use crate::global::DataType;
+use crate::interpreter::scope::FunctionData;
+use crate::interpreter::scope::{FnArgs, RuntimeScope};
 use crate::interpreter::structs::ComplexRuntimeValue;
+use crate::interpreter::structs::{EnumData, IterablePair, LayoutData, Reference, RuntimeValue};
+use crate::parser::structs::{ASTNode, AssignmentProperty, BinaryExpression, ExpressionType, ForStatement, IfStatement, LayoutCreation, LayoutDeclaration, OnceStatement, Operand, UseNative};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 pub struct Interpreter {
     program: Vec<ASTNode>,
@@ -55,7 +52,7 @@ impl Interpreter {
             ASTNode::Number(v) => RuntimeValue::Number(v.clone()),
             ASTNode::String(v) => RuntimeValue::String(v.clone()),
             ASTNode::Boolean(v) => RuntimeValue::Bool(v.clone()),
-            ASTNode::Identifier(identifier) => self.get_variable(identifier.clone(), scope),
+            ASTNode::Identifier(identifier) => self.get_identifier_value(identifier.clone(), scope),
             ASTNode::VariableDeclaration(is_let, identifier, type_id, value) => {
                 self.eval_variable_declaration(
                     is_let.clone(),
@@ -76,7 +73,7 @@ impl Interpreter {
             }
             ASTNode::FunctionDeclaration(identifier, args, body, data_type) => {
                 if let ASTNode::CodeBlock(body_code) = *body.clone() {
-                    self.eval_fn_declaration(identifier.clone(), args.clone(), body_code, scope);
+                    self.eval_fn_declaration(identifier.clone(), args.clone(), body_code, scope, data_type.clone());
                     RuntimeValue::Null
                 } else {
                     unreachable!()
@@ -109,7 +106,7 @@ impl Interpreter {
                 self.eval_for_statement(stmt, scope);
                 RuntimeValue::Null
             },
-            ASTNode::EnumAccessor(enum_id, entry) => self.eval_enum_access(enum_id, entry, scope),
+            ASTNode::ComplexTypeAccessor(enum_id, entry) => self.eval_complex_type_access(enum_id, entry, scope),
             ASTNode::EnumDeclaration(name, entries) => {
                 self.eval_enum_declaration(name, entries, scope);
                 RuntimeValue::Null
@@ -120,7 +117,12 @@ impl Interpreter {
                 RuntimeValue::Null
             },
             ASTNode::LayoutCreation(v) => self.eval_layout_creation(v.clone(), scope),
-            ASTNode::LayoutFieldAccess(name, field) => self.eval_layout_field_access(name.clone(), field.clone(), scope)
+            ASTNode::LayoutFieldAccess(name, field) => self.eval_layout_field_access(name.clone(), field.clone(), scope),
+            ASTNode::MixStatement(layout, mix) => {
+                self.eval_layout_mix(layout.clone(), mix.clone(), scope);
+
+                RuntimeValue::Null
+            }
         }
     }
 
@@ -245,8 +247,18 @@ impl Interpreter {
         // }
     }
 
-    fn get_variable(&self, identifier: String, scope: RuntimeScopeW) -> RuntimeValue {
-        scope.read().unwrap().read_variable(identifier).unwrap()
+    fn get_identifier_value(&self, identifier: String, scope: RuntimeScopeW) -> RuntimeValue {
+        let is_variable = scope.read().unwrap().read_variable(identifier.clone()).is_some();
+
+        if is_variable {
+            scope.read().unwrap().read_variable(identifier.clone()).expect(&format!("Cannot read the variable {}, as it's not declared", identifier))
+        } else {
+            RuntimeValue::Reference(
+                Reference::Function(
+                    scope.read().unwrap().get_function(identifier).unwrap()
+                )
+            )
+        }
     }
 
     fn eval_variable_declaration(
@@ -312,47 +324,67 @@ impl Interpreter {
         args: FnArgs,
         body: Vec<ASTNode>,
         scope: RuntimeScopeW,
+        return_type: DataType
     ) {
         scope
             .write()
             .unwrap()
-            .declare_function(identifier, args, body);
+            .declare_function(identifier, args, body, return_type);
     }
     //
     fn eval_fn_call(
         &self,
-        identifier: String,
+        identifier: Box<ASTNode>,
         args: Vec<ASTNode>,
         scope: RuntimeScopeW,
     ) -> RuntimeValue {
         // dbg!(&&identifier);
-        let native = scope.read().unwrap().get_native_function_from_ident(identifier.clone()).is_some();
+        let mut is_ident: bool = false;
+        let mut extracted_name: String = "".to_string();
 
-
-        if !native {
-            let mut new_scope = RuntimeScope::new(Some(scope.clone()));
-
-            let fn_data = new_scope.get_function(identifier).unwrap();
-
-            for (i, (arg, data_type)) in fn_data.args.iter().enumerate() {
-                dbg!(arg, &args[i]);
-                let ev = self.eval(&args[i], scope.clone());
-                let r#type = scope.read().unwrap().get_value_type(&ev);
-                if r#type != data_type.clone() {
-                    panic!("Cannot pass value of type `{}` to function argument `{}` of type `{}`", r#type, arg, data_type)
-                }
-                new_scope.declare_variable(arg.clone(), data_type.clone(), ev, true);
-            }
-
-            let r = self.eval(
-                &ASTNode::Program(fn_data.body),
-                Arc::new(RwLock::new(new_scope)),
-            );
-            r
-        } else {
-            let args_ev = args.iter().map(|x| self.eval(x, scope.clone())).collect();
-            (scope.read().unwrap().get_native_function_from_ident(identifier).expect("Cannot find native fn"))(args_ev)
+        if let ASTNode::Identifier(t) = *identifier.clone() {
+            is_ident = true;
+            extracted_name = t;
         }
+        let native = scope.read().unwrap().get_native_function_from_ident(extracted_name.clone()).is_some();
+
+        if is_ident && native {
+            let args_ev = args.iter().map(|x| self.eval(x, scope.clone())).collect();
+            (scope.read().unwrap().get_native_function_from_ident(extracted_name).expect("Cannot find native fn"))(args_ev)
+        } else {
+            let ev = self.eval(&*identifier, scope.clone());
+
+            if let RuntimeValue::Reference(Reference::Function(v)) = ev {
+                self.eval_fn_call_lower(v, args, scope.clone())
+            } else {
+                panic!("Cannot call a runtime value that is not a function reference.")
+            }
+        }
+    }
+
+    fn eval_fn_call_lower(
+        &self,
+        fn_data: FunctionData,
+        args: Vec<ASTNode>,
+        scope: RuntimeScopeW,
+    ) -> RuntimeValue {
+        let mut new_scope = RuntimeScope::new(Some(scope.clone()));
+
+        for (i, (arg, data_type)) in fn_data.args.iter().enumerate() {
+            dbg!(arg, &args[i]);
+            let ev = self.eval(&args[i], scope.clone());
+            let r#type = scope.read().unwrap().get_value_type(&ev);
+            if r#type != data_type.clone() {
+                panic!("Cannot pass value of type `{}` to function argument `{}` of type `{}`", r#type, arg, data_type)
+            }
+            new_scope.declare_variable(arg.clone(), data_type.clone(), ev, true);
+        }
+
+        let r = self.eval(
+            &ASTNode::Program(fn_data.body),
+            Arc::new(RwLock::new(new_scope)),
+        );
+        r
     }
 
     fn eval_comparison_expression(
@@ -492,20 +524,27 @@ impl Interpreter {
         }
     }
 
-    fn eval_enum_access(&self, enum_id: &String, entry: &String, scope: RuntimeScopeW) -> RuntimeValue {
-        if let Some(val) = scope.read().unwrap().get_enum_data(enum_id) {
+    fn eval_complex_type_access(&self, complex_id: &String, entry: &String, scope: RuntimeScopeW) -> RuntimeValue {
+        if let Some(val) = scope.read().unwrap().get_enum_data(complex_id) {
             if val.entries.contains(entry) {
                 RuntimeValue::Complex(
                     ComplexRuntimeValue::Enum(EnumData {
-                        enum_id: enum_id.clone(),
+                        enum_id: complex_id.clone(),
                         entry: entry.clone(),
                     })
                 )
             } else {
-                panic!("Enum `{}` does not have entry named `{}`", enum_id, entry)
+                panic!("Enum `{}` does not have entry named `{}`", complex_id, entry)
+            }
+        } else if let Some(val) = scope.read().unwrap().get_layout_declaration(complex_id) {
+            match val.mixed.read().unwrap().get(entry) {
+                None => panic!("No function `{}` was found in layout `{}`", entry, complex_id),
+                Some(v) => RuntimeValue::Reference(Reference::Function(
+                    v.clone()
+                ))
             }
         } else {
-            panic!("Enum `{}` does not exist in this scope.", enum_id)
+            panic!("No enum or layout `{}` does not exist in this scope.", complex_id)
         }
     }
 
@@ -589,5 +628,9 @@ impl Interpreter {
         } else {
             panic!("Variable `{}` is not of a complex type.", &name)
         }
+    }
+
+    fn eval_layout_mix(&self, layout: String, mix: Vec<FunctionData>, scope: RuntimeScopeW) {
+        scope.read().unwrap().mix_into_layout(layout.clone(), mix);
     }
 }

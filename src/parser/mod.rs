@@ -1,13 +1,13 @@
+use crate::global::{DataType, PrimitiveDataType};
+use crate::interpreter::scope::FunctionData;
 use crate::lexer::structs::{Direction, KeywordType, OperatorType, SignType, Token};
 use crate::lexer::tokenize;
-use crate::parser::structs::{ASTNode, AssignmentProperty, BinaryExpression, ExpressionType, IfStatement, LayoutCreation, Operand};
-use std::collections::{HashMap, VecDeque};
-use std::process::id;
-use crate::global::{DataType, PrimitiveDataType};
-use crate::parser::structs::{FieldParserDescription, LayoutDeclaration};
 use crate::parser::structs::ForStatement;
-use crate::parser::structs::UseNative;
 use crate::parser::structs::OnceStatement;
+use crate::parser::structs::UseNative;
+use crate::parser::structs::{ASTNode, AssignmentProperty, BinaryExpression, ExpressionType, IfStatement, LayoutCreation, Operand};
+use crate::parser::structs::{FieldParserDescription, LayoutDeclaration};
+use std::collections::{HashMap, VecDeque};
 
 pub mod structs;
 
@@ -83,6 +83,7 @@ impl Parser {
                     ASTNode::Typeof(Box::new(v))
                 },
                 KeywordType::Layout => self.parse_layout_declaration(),
+                KeywordType::Mix => self.parse_mix(),
                 _ => ASTNode::Expression(ExpressionType::Null),
             },
             Token::Identifier(_) => {
@@ -139,7 +140,7 @@ impl Parser {
         } else if let Token::Identifier(v) = token.clone() {
             self.go();
             if self.curr() == Token::Sign(SignType::SlashArrow) {
-                return Some(self.parse_enum_access(&v))
+                return Some(self.parse_complex_type_access(&v))
             } else if self.curr() == Token::Sign(SignType::CurlyBrace(Direction::Open)) {
                 return Some(self.parse_layout_creation(&v))
             } else if self.curr() == Token::Sign(SignType::Dot) {
@@ -439,6 +440,7 @@ impl Parser {
     fn parse_fn_declaration(&mut self) -> ASTNode {
         self.go(); // fn keyword
         let identifier_token = self.curr();
+        dbg!(&&&&&&&&&&&&identifier_token);
         if let Token::Identifier(identifier) = identifier_token {
             self.go(); // identifier
             if self.curr() == Token::Sign(SignType::DoubleArrow) {
@@ -521,20 +523,18 @@ impl Parser {
     }
 
     fn parse_function_call(&mut self) -> ASTNode {
-        if let Token::Identifier(identifier) = self.curr() {
-            if self.peek() == Token::Sign(SignType::Paren(Direction::Open)) {
-                self.go();
-                // self.go();
-                let arg_list = self.parse_fn_call_arg_list();
+        let left = self.parse_primary_expressions().unwrap_or(ASTNode::Expression(ExpressionType::Null));
 
-                ASTNode::FunctionCall(identifier, arg_list)
-            } else {
-                self.parse_primary_expressions()
-                    .unwrap_or(ASTNode::Expression(ExpressionType::Null))
-            }
+
+        if self.curr() == Token::Sign(SignType::Paren(Direction::Open)) {
+            // self.go();
+            // self.go();
+
+            let arg_list = self.parse_fn_call_arg_list();
+
+            ASTNode::FunctionCall(Box::new(left), arg_list)
         } else {
-            self.parse_primary_expressions()
-                .unwrap_or(ASTNode::Expression(ExpressionType::Null))
+            left
         }
     }
 
@@ -544,6 +544,10 @@ impl Parser {
             "Expected an opening paren.",
         );
 
+        if self.curr() == Token::Sign(SignType::Paren(Direction::Close)) {
+            return Vec::new()
+        }
+        
         let mut list: Vec<ASTNode> = vec![self.parse_expressions()];
         let mut tk = self.go();
 
@@ -611,7 +615,7 @@ impl Parser {
             
             if let ASTNode::Identifier(id) = right {
                 left = ASTNode::FunctionCall(
-                    id,
+                    Box::new(ASTNode::Identifier(id)),
                     vec![left.clone()]
                 )
             }
@@ -768,13 +772,13 @@ impl Parser {
         )
     }
 
-    fn parse_enum_access(&mut self, entry: &String) -> ASTNode {
+    fn parse_complex_type_access(&mut self, entry: &String) -> ASTNode {
         self.go(); // `/>`
 
         if let Token::Identifier(identifier) = self.go() {
-            ASTNode::EnumAccessor(entry.clone(), identifier)
+            ASTNode::ComplexTypeAccessor(entry.clone(), identifier)
         } else {
-            panic!("Expected an identifier after `/>` to access an entry from enum `{}`", entry)
+            panic!("Expected an identifier after `/>` to access from an enum or a layout `{}`", entry)
         }
     }
 
@@ -1016,6 +1020,57 @@ impl Parser {
             }
         } else {
             panic!("Expected an identifier or `nul` for a data type.")
+        }
+    }
+
+    fn parse_mix(&mut self) -> ASTNode {
+        self.go(); // `mix`
+
+        let identifier;
+        if let Token::Identifier(id) = self.go() {
+            identifier = id;
+        } else {
+            panic!("Expected an identifier marking the layout name.")
+        }
+
+        if self.go() != Token::Sign(SignType::CurlyBrace(Direction::Open)) {
+            panic!("Expected an opening curly braces.")
+        }
+
+        let mut functions: Vec<FunctionData> = Vec::new();
+
+        while self.curr() != Token::Sign(SignType::CurlyBrace(Direction::Close)) {
+            functions.push(self.parse_mix_function());
+        }
+
+        if self.go() != Token::Sign(SignType::CurlyBrace(Direction::Close)) {
+            panic!("Expected a closing curly braces.")
+        }
+
+        ASTNode::MixStatement(identifier, functions)
+    }
+
+    fn parse_mix_function(&mut self) -> FunctionData {
+        dbg!(&&&&&&self.curr());
+
+        let is_tied = self.curr() == Token::Keyword(KeywordType::Tied);
+
+        if is_tied {
+            dbg!(self.go());
+        }
+
+        let parse_fn = self.parse_fn_declaration();
+
+        if let ASTNode::FunctionDeclaration(name, args, body, return_type) = parse_fn {
+            if let ASTNode::CodeBlock(code) = *body {
+                FunctionData {
+                    name, args, body: code, return_type, tied: is_tied
+                }
+            } else {
+                unreachable!()
+            }
+        } else {
+            unreachable!()
         }
     }
 }

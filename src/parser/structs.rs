@@ -1,7 +1,7 @@
 use crate::global::DataType;
+use crate::interpreter::scope::FunctionData;
 use std::collections::HashMap;
 use std::hash::Hash;
-use crate::interpreter::structs::RuntimeValue;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ASTNode {
@@ -17,18 +17,19 @@ pub enum ASTNode {
     FunctionDeclaration(String, HashMap<String, DataType>, Box<ASTNode>, DataType),
     BindingAccess(String),
     CodeBlock(Vec<ASTNode>),
-    FunctionCall(String, Vec<ASTNode>),
+    FunctionCall(Box<ASTNode>, Vec<ASTNode>),
     IfStatement(IfStatement),
     OnceStatement(OnceStatement),
     UseNative(UseNative),
     Misc(MiscNodeType),
     ForStatement(ForStatement),
-    EnumAccessor(String, String),
+    ComplexTypeAccessor(String, String),
     EnumDeclaration(String, Vec<String>),
     Typeof(Box<ASTNode>),
     LayoutDeclaration(LayoutDeclaration),
     LayoutCreation(LayoutCreation),
-    LayoutFieldAccess(String, String)
+    LayoutFieldAccess(String, String),
+    MixStatement(String, Vec<FunctionData>),
 }
 
 
@@ -84,7 +85,7 @@ pub struct BinaryExpression {
 #[derive(Clone, PartialEq, Debug)]
 pub struct LayoutDeclaration {
     pub name: String,
-    pub fields: HashMap<String, FieldParserDescription>
+    pub fields: HashMap<String, FieldParserDescription>,
 }
 
 #[derive(Clone, PartialEq, Debug)]

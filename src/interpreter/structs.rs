@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Sub};
 use std::sync::{Arc, RwLock};
+use crate::interpreter::scope::FunctionData;
 
 #[derive(Debug, Clone)]
 pub enum RuntimeValue {
@@ -11,12 +12,18 @@ pub enum RuntimeValue {
     Bool(bool),
     Iterable(Vec<IterablePair>),
     Complex(ComplexRuntimeValue),
+    Reference(Reference)
 }
 
 #[derive(Debug, Clone)]
 pub enum ComplexRuntimeValue {
     Enum(EnumData),
     Layout(Arc<LayoutData>)
+}
+
+#[derive(Debug, Clone)]
+pub enum Reference {
+    Function(FunctionData),
 }
 
 
@@ -34,7 +41,7 @@ pub struct EnumData {
 #[derive(Debug, Clone)]
 pub struct LayoutData {
     pub layout_id: String,
-    pub entries: Arc<RwLock<HashMap<String, RuntimeValue>>>
+    pub entries: Arc<RwLock<HashMap<String, RuntimeValue>>>,
 }
 
 
@@ -197,7 +204,10 @@ impl Display for RuntimeValue {
             RuntimeValue::Complex(_) => {
                 String::from("Unable to properly convert the value to a string.")
             },
-            RuntimeValue::Iterable(v) => format!("{:?}", v)
+            RuntimeValue::Iterable(v) => format!("{:?}", v),
+            RuntimeValue::Reference(v) => match v {
+                Reference::Function(_) => "ref[function]".to_string()
+            }
         };
         write!(f, "{}", str)
     }

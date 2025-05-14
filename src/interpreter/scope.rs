@@ -1,15 +1,9 @@
-use std::alloc::Layout;
-use crate::interpreter::structs::{ComplexRuntimeValue, LayoutData, RuntimeValue};
-use crate::lexer::structs::KeywordType::Has;
-use crate::parser::structs::{ASTNode, LayoutDeclaration};
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::process::id;
-use std::rc::Rc;
-use std::sync::{Arc, Mutex, MutexGuard, RwLock};
-use uuid::Uuid;
-use crate::global::ComplexDataType;
+use crate::global::{ComplexDataType, ReferenceType};
 use crate::global::{DataType, NumType, PrimitiveDataType};
+use crate::interpreter::structs::{ComplexRuntimeValue, Reference, RuntimeValue};
+use crate::parser::structs::{ASTNode, FieldParserDescription, LayoutDeclaration};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 pub type FnArgs = HashMap<String, DataType>;
 
@@ -19,16 +13,26 @@ pub struct VariableData {
     pub immut: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct FunctionData {
+    pub name: String,
     pub args: FnArgs,
     pub body: Vec<ASTNode>,
+    pub return_type: DataType,
+    pub tied: bool
 }
 
 #[derive(Clone)]
 pub struct EnumDefinition {
     pub name: String,
     pub entries: Vec<String>
+}
+
+#[derive(Clone, Debug)]
+pub struct ScopeLayoutDeclaration {
+    pub name: String,
+    pub fields: HashMap<String, FieldParserDescription>,
+    pub mixed: Arc<RwLock<HashMap<String, FunctionData>>>
 }
 
 pub struct RuntimeScope {
@@ -39,7 +43,7 @@ pub struct RuntimeScope {
     defined_native_functions: HashMap<String, String>,
     bindings: HashMap<String, RuntimeValue>,
     enums: HashMap<String, EnumDefinition>,
-    layouts: HashMap<String, LayoutDeclaration>,
+    layouts: HashMap<String, ScopeLayoutDeclaration>,
 }
 
 impl RuntimeScope {
@@ -86,7 +90,7 @@ impl RuntimeScope {
             if let Some(parent) = &self.parent {
                 parent.read().unwrap().read_variable(name)
             } else {
-                panic!("Cannot read the variable {}, as it's not declared", name)
+                None
             }
         }
     }
@@ -136,8 +140,8 @@ impl RuntimeScope {
         }
     }
 
-    pub fn declare_function(&mut self, name: String, args: FnArgs, body: Vec<ASTNode>) {
-        self.functions.insert(name, FunctionData { args, body });
+    pub fn declare_function(&mut self, name: String, args: FnArgs, body: Vec<ASTNode>, return_type: DataType) {
+        self.functions.insert(name.clone(), FunctionData { name, args, body, tied: false, return_type });
     }
 
     pub fn get_function(&self, name: String) -> Option<FunctionData> {
@@ -209,7 +213,12 @@ impl RuntimeScope {
             },
             RuntimeValue::Iterable(_) => DataType::Primitive(PrimitiveDataType::Iterable(
                 Box::new(DataType::Primitive(PrimitiveDataType::Num(NumType::Dynamic)))
-            ))
+            )),
+            RuntimeValue::Reference(v) => match v {
+                Reference::Function(_) => {
+                    DataType::Reference(ReferenceType::Function)
+                }
+            }
         }
     }
 
@@ -233,10 +242,15 @@ impl RuntimeScope {
     }
 
     pub fn declare_layout(&mut self, layout_info: LayoutDeclaration) {
-        self.layouts.insert(layout_info.name.clone(), layout_info);
+        self.layouts.insert(layout_info.name.clone(), ScopeLayoutDeclaration {
+            name: layout_info.name,
+            fields: layout_info.fields,
+            mixed: Arc::new(RwLock::new(HashMap::new()))
+        });
     }
 
-    pub fn get_layout_declaration(&self, name: &String) -> Option<LayoutDeclaration> {
+
+    pub fn get_layout_declaration(&self, name: &String) -> Option<ScopeLayoutDeclaration> {
         if let Some(layout) = self.layouts.get(name) {
             Some(layout.clone())
         } else {
@@ -244,6 +258,23 @@ impl RuntimeScope {
                 parent.read().unwrap().get_layout_declaration(name)
             } else {
                 None
+            }
+        }
+    }
+
+    pub fn mix_into_layout(&self, layout_id: String, mix_data: Vec<FunctionData>) {
+        match self.layouts.get(&layout_id) {
+            None => {
+                panic!("Cannot mix into non-existent layout `{}`", layout_id)
+            }
+            Some(v) => {
+                let mut hm: HashMap<String, FunctionData> = HashMap::new();
+
+                for data in mix_data {
+                    hm.insert(data.name.clone(), data);
+                }
+
+                v.mixed.write().unwrap().extend(hm)
             }
         }
     }
