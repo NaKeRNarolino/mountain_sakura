@@ -17,31 +17,37 @@ scope.add_native_function(String::from("mosa-native~>printLn"), Arc::new(|args| 
 ```
 ---
 
-Here's a small example of MoSa code.
+Here's a small example showcasing a few features of MoSa.
 ```mosa
-// Calculate a power of 2
+// file execution starts from the start, no `main` function is needed
+use native fn printLn#"mosa-native~>printLn"; // we'll use a native function-wrapper the for rust println! marco
+// as there's no std for mosa yet
 
-fn power_of_two ->> Num -> Num { // define a function using DAS. (You can use a regular function too)
-    let buf = 1; // create a variable `buf` and assign 1
-    // argument in a DAS function is always called `it`
-    (:=buf * 2)?:it; // use the repeat `?:` operator to repeat the expression with the self-assign `:=` operator
-    buf // return the variable buf
+let v = 1; // create a variable named v and assign zero to it
+let vType: str = typeof v; // here we explicitly define the type for the variable.
+// `typeof` gets a string representation of the type from `v`
+
+vType ->> printLn; // using DAS we can call a function with only one argument like this
+// prints `num`
+
+// MoSa is a strictly-typed language, so in this case we cannot assign "hi" to `v`, as it's a num
+
+// you can also create your own functions
+// the regular syntax is identical to rust
+fn f(v: num) -> num {
+    v * v * 2 // MoSa has no `return` keyword. It returns whatever the last expression in that code block returned
 }
 
-fn power_of_two(power: Num) -> Num {
-// here's an example of creating a regular function. 
-// MoSa's DAS function definition is a syntactic sugar,
-// the interpreter see's them both as regular functions,
-// and a regular function can be called with the `->>` operator,
-// and a DAS function can be called with `()`
-    let buf = 1;
-    (:=buf * 2)?:power;
-    buf
-}
+// it's worth mentioning that a function that returns nothing will return `null`
+// in MoSa `null` is it's own primitive type, just like str, num, etc.
 
-immut let power = 8; // MoSa has no constants in their regular form, so we use `immut let` to create a variable that cannot be modified in the future
-let res = power ->> power_of_two; // using DAS to pass `power` as an argument to `power_of_two`
-res // returning `res`; 256 is the result
+immut let q = f(v); // regular function calls are also supported
+// an `immut` variable (or as I like to call them - invariables) cannot be edited afterwards.
+// analogue of `const` in most languages
+
+printLn(q); // prints `2`
+
+// MoSa also has *complex* data structures, enums and layouts. Learn more about them on the wiki!
 ```
 
 You can check the docs at the wiki: https://github.com/NaKeRNarolino/mountain_sakura/wiki
