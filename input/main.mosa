@@ -15,25 +15,29 @@ use native fn printLn#"mosa-native~>printLn";
 //
 //a
 
-layout Test {
-    nullable: nul num
-} mix @ {
-    tied fn hi() -> nul num {
-        self.nullable
+layout ExampleLayout {
+    value1: num,
+    value2: str = "hi"
+}
+
+mix ExampleLayout {
+    fn hello() -> ExampleLayout {
+        ExampleLayout {
+            value1 = 1,
+            value2 = "hello"
+        }
     }
 
-    tied fn modify() -> null {
-        self.nullable = 123;
+    tied fn add(v: num) -> null {
+        :=self.value1 + v
     }
 }
-//
-let v = Test {
-    nullable = 12
-};
 
-v.modify();
+let v = ExampleLayout->hello();
 
-v.hi()
+v.add(3);
+
+printLn(v.value1);
 
 //fn hi(s: str) -> str {
 //    s + "hi"

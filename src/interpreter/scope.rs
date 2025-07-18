@@ -4,8 +4,9 @@ use crate::interpreter::structs::{ComplexRuntimeValue, Reference, RuntimeValue};
 use crate::parser::structs::{ASTNode, FieldParserDescription, LayoutDeclaration};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+use indexmap::IndexMap;
 
-pub type FnArgs = HashMap<String, DataType>;
+pub type FnArgs = IndexMap<String, DataType>;
 
 #[derive(Debug)]
 pub struct VariableData {

@@ -2,6 +2,7 @@ use crate::global::DataType;
 use crate::interpreter::scope::FunctionData;
 use std::collections::HashMap;
 use std::hash::Hash;
+use indexmap::IndexMap;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ASTNode {
@@ -14,7 +15,7 @@ pub enum ASTNode {
     VariableDeclaration(bool, String, DataType, Box<ASTNode>),
     Assignment(AssignmentProperty, Box<ASTNode>),
     RepeatOperation(Box<ASTNode>, Box<ASTNode>),
-    FunctionDeclaration(String, HashMap<String, DataType>, Box<ASTNode>, DataType),
+    FunctionDeclaration(String, IndexMap<String, DataType>, Box<ASTNode>, DataType),
     BindingAccess(String),
     CodeBlock(Vec<ASTNode>),
     FunctionCall(Box<ASTNode>, Vec<ASTNode>),

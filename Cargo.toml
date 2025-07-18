@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 regex = "1.10.6"
 uuid = { version = "1.11.0", features = ["fast-rng", "v4"] }
+indexmap = "2.10.0"

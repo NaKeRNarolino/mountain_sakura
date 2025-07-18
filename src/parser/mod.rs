@@ -8,6 +8,7 @@ use crate::parser::structs::UseNative;
 use crate::parser::structs::{ASTNode, AssignmentProperty, BinaryExpression, ExpressionType, IfStatement, LayoutCreation, Operand};
 use crate::parser::structs::{FieldParserDescription, LayoutDeclaration};
 use std::collections::{HashMap, VecDeque};
+use indexmap::IndexMap;
 use crate::global::ComplexDataType;
 
 pub mod structs;
@@ -477,9 +478,9 @@ impl Parser {
         }
     }
 
-    fn parse_fn_args_list(&mut self) -> HashMap<String, DataType> {
+    fn parse_fn_args_list(&mut self) -> IndexMap<String, DataType> {
         self.go(); // paren
-        let mut args_map: HashMap<String, DataType> = HashMap::new();
+        let mut args_map: IndexMap<String, DataType> = IndexMap::new();
         while self.curr() != Token::Sign(SignType::Paren(Direction::Close)) {
             let (arg_name, data_type) = self.parse_fn_arg();
             if self.curr() == Token::Sign(SignType::Comma) {
@@ -585,7 +586,7 @@ impl Parser {
         
         let data_type= self.parse_data_type();
 
-        let mut args = HashMap::new();
+        let mut args = IndexMap::new();
 
         args.insert(String::from("it"), arg_type);
 
@@ -1095,9 +1096,10 @@ impl Parser {
 
         if let ASTNode::FunctionDeclaration(ref name, ref args, ref body, ref return_type) = parse_fn {
           if is_tied {
-              let mut arg = HashMap::new();
+              let mut arg = IndexMap::new();
               arg.insert("self".to_string(), DataType::Complex(ComplexDataType::LayoutOrEnum(identifier.cloned().unwrap())));
               arg.extend(args.clone().into_iter());
+              dbg!(&arg);
               parse_fn = ASTNode::FunctionDeclaration(name.clone(), arg, body.clone(), return_type.clone());
           }
         }
