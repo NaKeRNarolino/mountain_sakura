@@ -17,14 +17,29 @@ use native fn printLn#"mosa-native~>printLn";
 
 layout Test {
     nullable: nul num
-}
+} mix @ {
+    tied fn hi() -> nul num {
+        self.nullable
+    }
 
-mix Test {
-    fn hi() -> str {
-        "Hi!"
+    tied fn modify() -> null {
+        self.nullable = 123;
     }
 }
-Test/>hi() + "Hi"
+//
+let v = Test {
+    nullable = 12
+};
+
+v.modify();
+
+v.hi()
+
+//fn hi(s: str) -> str {
+//    s + "hi"
+//}
+//
+//hi("x")
 
 
 

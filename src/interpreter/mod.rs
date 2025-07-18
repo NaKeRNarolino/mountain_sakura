@@ -122,7 +122,8 @@ impl Interpreter {
                 self.eval_layout_mix(layout.clone(), mix.clone(), scope);
 
                 RuntimeValue::Null
-            }
+            },
+            ASTNode::InternalMulti(_) => unreachable!()
         }
     }
 
@@ -354,10 +355,20 @@ impl Interpreter {
         } else {
             let ev = self.eval(&*identifier, scope.clone());
 
-            if let RuntimeValue::Reference(Reference::Function(v)) = ev {
-                self.eval_fn_call_lower(v, args, scope.clone())
-            } else {
-                panic!("Cannot call a runtime value that is not a function reference.")
+            match ev {
+                RuntimeValue::Reference(Reference::Function(v)) => {
+                    self.eval_fn_call_lower(v, args, scope.clone())
+                },
+                RuntimeValue::Reference(Reference::MethodLikeFunction(v, name, scoped)) => {
+                    let var = scope.clone().read().unwrap().read_variable(name.clone());
+
+                    let mut arg = vec![ASTNode::Identifier(name)];
+                    arg.append(&mut args.clone());
+                    self.eval_fn_call_lower(v, arg, scoped.clone())
+                },
+                _ => {
+                    panic!("Cannot call a runtime value that is not a function reference.")
+                }
             }
         }
     }
@@ -539,9 +550,13 @@ impl Interpreter {
         } else if let Some(val) = scope.read().unwrap().get_layout_declaration(complex_id) {
             match val.mixed.read().unwrap().get(entry) {
                 None => panic!("No function `{}` was found in layout `{}`", entry, complex_id),
-                Some(v) => RuntimeValue::Reference(Reference::Function(
-                    v.clone()
-                ))
+                Some(v) => if v.tied { 
+                    panic!("The function `{}` is a tied function, and cannot be accessed with the -> operator.", v.name)
+                } else {
+                    RuntimeValue::Reference(Reference::Function(
+                        v.clone()
+                    ))
+                }
             }
         } else {
             panic!("No enum or layout `{}` does not exist in this scope.", complex_id)
@@ -611,11 +626,32 @@ impl Interpreter {
             &format!("Cannot find layout variable `{}` in this scope.", &name)
         );
 
+        let ty = scope.read().unwrap().get_value_type(&variable).to_string();
+
         let data = self.cast_to_layout_data(variable, &name);
 
-        data.entries.clone().read().unwrap().get(&field).expect(
-            &format!("Field `{}` does not exist on type `{}`.", &field, &data.layout_id)
-        ).clone()
+        if let Some(decl) = scope.clone().read().unwrap().get_layout_declaration(
+            &ty
+        ) {
+            if let Some(fun) = decl.mixed.read().unwrap().get(&field) {
+                if fun.tied {
+                    RuntimeValue::Reference(
+                        Reference::MethodLikeFunction(fun.clone(), name, scope)
+                    )
+                } else {
+                    panic!("Function `{}` is not a tied function on type `{}`.", &field, &data.layout_id)
+                }
+            } else {
+                data.entries.clone().read().unwrap().get(&field).expect(
+                    &format!("Field or function `{}` does not exist on type `{}`.", &field, &data.layout_id)
+                ).clone()
+                // panic!("Function `{}` does not exist on type `{}`.", &field, &data.layout_id)
+            }
+        } else {
+            data.entries.clone().read().unwrap().get(&field).expect(
+                &format!("Field `{}` does not exist on type `{}`.", &field, &data.layout_id)
+            ).clone()
+        }
     }
 
     fn cast_to_layout_data(&self, variable: RuntimeValue, name: &String) -> Arc<LayoutData> {

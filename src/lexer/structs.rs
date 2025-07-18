@@ -119,6 +119,7 @@ pub enum SignType {
     Caret,                 // ^
     DoubleDot,             // ..
     SlashArrow,            // />
+    At,                    // @
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -137,7 +138,8 @@ pub fn simple_sign_types() -> HashMap<char, SignType> {
         (':', SignType::Colon),
         ('!', SignType::ExclamationMk),
         ('#', SignType::HashSign),
-        ('^', SignType::Caret)
+        ('^', SignType::Caret),
+        ('@', SignType::At)
     ])
 }
 

@@ -7,6 +7,7 @@ use std::sync::{Arc, RwLock};
 
 pub type FnArgs = HashMap<String, DataType>;
 
+#[derive(Debug)]
 pub struct VariableData {
     pub value: RwLock<RuntimeValue>,
     pub type_id: DataType,
@@ -22,7 +23,7 @@ pub struct FunctionData {
     pub tied: bool
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EnumDefinition {
     pub name: String,
     pub entries: Vec<String>
@@ -35,6 +36,7 @@ pub struct ScopeLayoutDeclaration {
     pub mixed: Arc<RwLock<HashMap<String, FunctionData>>>
 }
 
+// #[derive(Debug)]
 pub struct RuntimeScope {
     parent: Option<Arc<RwLock<RuntimeScope>>>,
     variables: HashMap<String, VariableData>,
@@ -217,7 +219,8 @@ impl RuntimeScope {
             RuntimeValue::Reference(v) => match v {
                 Reference::Function(_) => {
                     DataType::Reference(ReferenceType::Function)
-                }
+                },
+                Reference::MethodLikeFunction(_, _, _) => DataType::Reference(ReferenceType::Function)
             }
         }
     }

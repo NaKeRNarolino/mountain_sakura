@@ -8,6 +8,7 @@ use crate::parser::structs::UseNative;
 use crate::parser::structs::{ASTNode, AssignmentProperty, BinaryExpression, ExpressionType, IfStatement, LayoutCreation, Operand};
 use crate::parser::structs::{FieldParserDescription, LayoutDeclaration};
 use std::collections::{HashMap, VecDeque};
+use crate::global::ComplexDataType;
 
 pub mod structs;
 
@@ -53,7 +54,12 @@ impl Parser {
         let mut body: Vec<ASTNode> = vec![];
 
         while !self.is_end() {
-            body.push(self.parse_expressions())
+            let parse = self.parse_expressions();
+            if let ASTNode::InternalMulti(mut nodes) = parse {
+                body.append(&mut nodes);
+            } else {
+                body.push(parse);
+            }
         }
 
         ASTNode::Program(body)
@@ -83,7 +89,7 @@ impl Parser {
                     ASTNode::Typeof(Box::new(v))
                 },
                 KeywordType::Layout => self.parse_layout_declaration(),
-                KeywordType::Mix => self.parse_mix(),
+                KeywordType::Mix => self.parse_mix(None),
                 _ => ASTNode::Expression(ExpressionType::Null),
             },
             Token::Identifier(_) => {
@@ -139,7 +145,7 @@ impl Parser {
             return Some(ASTNode::Number(v));
         } else if let Token::Identifier(v) = token.clone() {
             self.go();
-            if self.curr() == Token::Sign(SignType::SlashArrow) {
+            if self.curr() == Token::Sign(SignType::Arrow) {
                 return Some(self.parse_complex_type_access(&v))
             } else if self.curr() == Token::Sign(SignType::CurlyBrace(Direction::Open)) {
                 return Some(self.parse_layout_creation(&v))
@@ -545,6 +551,7 @@ impl Parser {
         );
 
         if self.curr() == Token::Sign(SignType::Paren(Direction::Close)) {
+            self.go();
             return Vec::new()
         }
         
@@ -773,12 +780,12 @@ impl Parser {
     }
 
     fn parse_complex_type_access(&mut self, entry: &String) -> ASTNode {
-        self.go(); // `/>`
+        self.go(); // `->`
 
         if let Token::Identifier(identifier) = self.go() {
             ASTNode::ComplexTypeAccessor(entry.clone(), identifier)
         } else {
-            panic!("Expected an identifier after `/>` to access from an enum or a layout `{}`", entry)
+            panic!("Expected an identifier after `->` to access from an enum or a layout `{}`", entry)
         }
     }
 
@@ -855,10 +862,30 @@ impl Parser {
 
         let entries = self.parse_layout_entries();
 
-        ASTNode::LayoutDeclaration(LayoutDeclaration {
-            name: identifier,
-            fields: entries,
-        })
+        let tr = self.try_parse_internal_mix(identifier.clone());
+
+        if let Some(mix) = tr {
+            ASTNode::InternalMulti(vec![
+                ASTNode::LayoutDeclaration(LayoutDeclaration {
+                    name: identifier,
+                    fields: entries,
+                }),
+                mix
+            ])
+        } else {
+            ASTNode::LayoutDeclaration(LayoutDeclaration {
+                name: identifier,
+                fields: entries,
+            })
+        }
+    }
+
+    fn try_parse_internal_mix(&mut self, internal_ident: String) -> Option<ASTNode> {
+        if self.curr() == Token::Keyword(KeywordType::Mix) && self.peek() == Token::Sign(SignType::At) {
+            Some(self.parse_mix(Some(internal_ident)))
+        } else {
+            None
+        }
     }
 
     fn parse_layout_entries(&mut self) -> HashMap<String, FieldParserDescription> {
@@ -971,7 +998,7 @@ impl Parser {
     fn parse_layout_creation_single_entry(&mut self) -> Option<(String, Box<ASTNode>)> {
         if let Token::Identifier(id) = self.go() {
             if self.go() != Token::Operator(OperatorType::Equal) {
-                panic!("Expected a colon after `{}`", id)
+                panic!("Expected an equals sign after `{}`", id)
             }
 
             // self.go(); // '='
@@ -1023,14 +1050,19 @@ impl Parser {
         }
     }
 
-    fn parse_mix(&mut self) -> ASTNode {
+    fn parse_mix(&mut self, internal_ident: Option<String>) -> ASTNode {
         self.go(); // `mix`
 
         let identifier;
-        if let Token::Identifier(id) = self.go() {
-            identifier = id;
+        if let Some(i) = internal_ident {
+            identifier = i;
+            self.go(); // @
         } else {
-            panic!("Expected an identifier marking the layout name.")
+            if let Token::Identifier(id) = self.go() {
+                identifier = id;
+            } else {
+                panic!("Expected an identifier marking the layout name.")
+            }
         }
 
         if self.go() != Token::Sign(SignType::CurlyBrace(Direction::Open)) {
@@ -1040,7 +1072,7 @@ impl Parser {
         let mut functions: Vec<FunctionData> = Vec::new();
 
         while self.curr() != Token::Sign(SignType::CurlyBrace(Direction::Close)) {
-            functions.push(self.parse_mix_function());
+            functions.push(self.parse_mix_function(Some(&identifier)));
         }
 
         if self.go() != Token::Sign(SignType::CurlyBrace(Direction::Close)) {
@@ -1050,7 +1082,7 @@ impl Parser {
         ASTNode::MixStatement(identifier, functions)
     }
 
-    fn parse_mix_function(&mut self) -> FunctionData {
+    fn parse_mix_function(&mut self, identifier: Option<&String>) -> FunctionData {
         dbg!(&&&&&&self.curr());
 
         let is_tied = self.curr() == Token::Keyword(KeywordType::Tied);
@@ -1059,7 +1091,16 @@ impl Parser {
             dbg!(self.go());
         }
 
-        let parse_fn = self.parse_fn_declaration();
+        let mut parse_fn = self.parse_fn_declaration();
+
+        if let ASTNode::FunctionDeclaration(ref name, ref args, ref body, ref return_type) = parse_fn {
+          if is_tied {
+              let mut arg = HashMap::new();
+              arg.insert("self".to_string(), DataType::Complex(ComplexDataType::LayoutOrEnum(identifier.cloned().unwrap())));
+              arg.extend(args.clone().into_iter());
+              parse_fn = ASTNode::FunctionDeclaration(name.clone(), arg, body.clone(), return_type.clone());
+          }
+        }
 
         if let ASTNode::FunctionDeclaration(name, args, body, return_type) = parse_fn {
             if let ASTNode::CodeBlock(code) = *body {

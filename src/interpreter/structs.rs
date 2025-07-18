@@ -1,7 +1,8 @@
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Div, Mul, Sub};
 use std::sync::{Arc, RwLock};
+use crate::interpreter::RuntimeScopeW;
 use crate::interpreter::scope::FunctionData;
 
 #[derive(Debug, Clone)]
@@ -21,9 +22,16 @@ pub enum ComplexRuntimeValue {
     Layout(Arc<LayoutData>)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Reference {
     Function(FunctionData),
+    MethodLikeFunction(FunctionData, String, RuntimeScopeW)
+}
+
+impl Debug for Reference {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Reference::*")
+    }
 }
 
 
@@ -206,7 +214,8 @@ impl Display for RuntimeValue {
             },
             RuntimeValue::Iterable(v) => format!("{:?}", v),
             RuntimeValue::Reference(v) => match v {
-                Reference::Function(_) => "ref[function]".to_string()
+                Reference::Function(_) => "ref[function]".to_string(),
+                Reference::MethodLikeFunction(..) => "ref[function]".to_string()
             }
         };
         write!(f, "{}", str)

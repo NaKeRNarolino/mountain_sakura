@@ -38,8 +38,8 @@ impl DataType {
                     ))
                 )
             ),
-            _ => {
-                DataType::InternalInfer
+            v => {
+                DataType::Complex(ComplexDataType::LayoutOrEnum(v.to_string()))
             }
         }
     }
