@@ -379,7 +379,7 @@ impl Interpreter {
         args: Vec<ASTNode>,
         scope: RuntimeScopeW,
     ) -> RuntimeValue {
-        let mut new_scope = RuntimeScope::new(Some(scope.clone()));
+        let mut new_scope = RuntimeScope::new(None);
 
         for (i, (arg, data_type)) in fn_data.args.iter().enumerate() {
             // dbg!(arg, &args[i]);

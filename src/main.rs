@@ -13,6 +13,7 @@ pub mod global;
 pub mod interpreter;
 pub mod lexer;
 pub mod parser;
+pub mod modules;
 
 fn get_input() -> String {
     let file = fs::read_to_string("./input/main.mosa").unwrap();

@@ -1,58 +1,12 @@
 use native fn print#"mosa-native~>print";
 use native fn printLn#"mosa-native~>printLn";
 
-//fn hi(v: num) -> null {
-//    "Hi!" ->> print;
-//    " iteration: " ->> print;
-//    print(v + 1);
-//    printLn
-//}
-//
-//let fun = hi;
-//let a = 0;
-//
-//(:=a+1)?:15;
-//
-//a
+//use import~>hi;
 
-layout ExampleLayout {
-    value1: num,
-    value2: str = "hi"
+fn ty() -> num {
+    v
 }
 
-mix ExampleLayout {
-    fn hello() -> ExampleLayout {
-        ExampleLayout {
-            value1 = 1,
-            value2 = "hello"
-        }
-    }
+let v = 10;
 
-    tied fn add(v: num) -> null {
-        :=self.value1 + v
-    }
-}
-
-let v = ExampleLayout->hello();
-printLn(v.value1);
-
-v.add(3);
-
-printLn(v.value1);
-
-//fn hi(s: str) -> str {
-//    s + "hi"
-//}
-//
-//hi("x")
-
-
-
-//let fun: ref[function[null]] = name;
-
-////
-////Test0hi()
-////
-////immut let i: iterable<num> = iterable [ 1, 2, 3 ]
-////immut let k: nul iterable<nul num> = null; |>
-//
+ty()

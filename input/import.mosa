@@ -1,0 +1,9 @@
+//exp layout Hi { } mix @ {
+//    fn hi() -> str {
+//        "hi"
+//    }
+//}
+
+exp fn hi() -> str {
+    "hi"
+}
