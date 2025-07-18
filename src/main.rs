@@ -2,6 +2,7 @@ use crate::interpreter::scope::RuntimeScope;
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use std::fs;
+use std::io::Write;
 use std::sync::Arc;
 use std::time::Instant;
 use crate::global::DataType;
@@ -34,6 +35,8 @@ fn main() {
     
     scope.add_native_function(String::from("mosa-native~>printLn"), Arc::new(|args| {
         println!("{}", args[0]);
+        std::io::stdout().flush().unwrap();
+
         RuntimeValue::Null
     }));
 

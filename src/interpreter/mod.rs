@@ -382,7 +382,7 @@ impl Interpreter {
         let mut new_scope = RuntimeScope::new(Some(scope.clone()));
 
         for (i, (arg, data_type)) in fn_data.args.iter().enumerate() {
-            dbg!(arg, &args[i]);
+            // dbg!(arg, &args[i]);
             let ev = self.eval(&args[i], scope.clone());
             let r#type = scope.read().unwrap().get_value_type(&ev);
             if r#type != data_type.clone() {

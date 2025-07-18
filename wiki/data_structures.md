@@ -56,6 +56,7 @@ mix ExampleLayout {
     }
 }
 
+// The functions are called with the -> operator.
 let v = ExampleLayout->hello();
 
 printLn(v.value2); // hello
@@ -64,22 +65,39 @@ printLn(v.value2); // hello
 In MoSa, `tied` functions are functions that are tied to an instance of a layout.
 ```mosa
 layout ExampleLayout {
-    value1: num, 
+    value1: num,
     value2: str = "hi"
 }
 
 mix ExampleLayout {
-    fn hello() -> ExampleLayout { // in the future, you'll be able to use `@self` instead of the layout name
+    fn hello() -> ExampleLayout {
         ExampleLayout {
             value1 = 1,
-            value2 = "hello"  
+            value2 = "hello"
         }
     }
     
-    tied fn add(v: num)
+    // tied functions can access `self`, which is the instance that called the tied function.
+    tied fn add(v: num) -> null {
+        :=self.value1 + v
+    }
 }
 
 let v = ExampleLayout->hello();
+printLn(v.value1); // 1, as it's defined in `hello()`
 
-printLn(v.value2); // hello
+// Tied functions use the . symbol for calling them
+v.add(3);
+
+printLn(v.value1); // 4, as it's modified by `add()`
+```
+
+### Mix shorthand
+You can use `mix @`, to mix into the layout that was created right before the mix statement.
+```mosa
+layout ExampleLayout {
+    ...
+} mix @ { // the same as `mix ExampleLayout`
+    ...
+}
 ```
