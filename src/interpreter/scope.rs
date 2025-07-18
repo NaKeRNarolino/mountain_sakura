@@ -3,10 +3,14 @@ use crate::global::{DataType, NumType, PrimitiveDataType};
 use crate::interpreter::structs::{ComplexRuntimeValue, Reference, RuntimeValue};
 use crate::parser::structs::{ASTNode, FieldParserDescription, LayoutDeclaration};
 use std::collections::HashMap;
+use std::fmt::{Debug, Formatter};
 use std::sync::{Arc, RwLock};
 use indexmap::IndexMap;
 
 pub type FnArgs = IndexMap<String, DataType>;
+
+pub type RuntimeScopeW = Arc<RwLock<RuntimeScope>>;
+
 
 #[derive(Debug)]
 pub struct VariableData {
@@ -47,6 +51,12 @@ pub struct RuntimeScope {
     bindings: HashMap<String, RuntimeValue>,
     enums: HashMap<String, EnumDefinition>,
     layouts: HashMap<String, ScopeLayoutDeclaration>,
+}
+
+impl Debug for RuntimeScope {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str("/* an instance of RuntimeScope */")
+    }
 }
 
 impl RuntimeScope {
@@ -154,7 +164,7 @@ impl RuntimeScope {
             if let Some(parent) = &self.parent {
                 parent.read().unwrap().get_function(name)
             } else {
-                panic!("Cannot read the function {}, as it's not declared", name)
+                None
             }
         }
     }

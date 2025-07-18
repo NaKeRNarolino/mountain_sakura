@@ -120,6 +120,8 @@ pub enum SignType {
     DoubleDot,             // ..
     SlashArrow,            // />
     At,                    // @
+    Tilde,                 // ~
+    TildeArrow,            // ~>
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -139,7 +141,8 @@ pub fn simple_sign_types() -> HashMap<char, SignType> {
         ('!', SignType::ExclamationMk),
         ('#', SignType::HashSign),
         ('^', SignType::Caret),
-        ('@', SignType::At)
+        ('@', SignType::At),
+        ('~', SignType::Tilde)
     ])
 }
 
@@ -226,5 +229,10 @@ pub fn two_element_signs_conversions() -> Vec<TwoElementSignsConversion> {
             second: Token::Operator(OperatorType::Bigger),
             result: Token::Sign(SignType::SlashArrow),
         }, // />
+        TwoElementSignsConversion {
+            first: Token::Sign(SignType::Tilde),
+            second: Token::Operator(OperatorType::Bigger),
+            result: Token::Sign(SignType::TildeArrow),
+        }, // ~>
     ]
 }

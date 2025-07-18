@@ -8,23 +8,32 @@ use crate::parser::structs::UseNative;
 use crate::parser::structs::{ASTNode, AssignmentProperty, BinaryExpression, ExpressionType, IfStatement, LayoutCreation, Operand};
 use crate::parser::structs::{FieldParserDescription, LayoutDeclaration};
 use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
 use indexmap::IndexMap;
+use crate::modules::ModuleExport;
 use crate::global::ComplexDataType;
+use crate::global::ReferenceType::Function;
+use crate::modules::{Module, ModuleStorage};
+use crate::mosa_fs;
 
 pub mod structs;
 
 #[derive(Clone)]
 pub struct Parser {
     tokens: VecDeque<Token>,
+    module: Arc<Module>,
+    module_storage: Arc<ModuleStorage>,
+    root: String,
+    relative_root: String
 }
 
 impl Parser {
-    pub fn new(source: String) -> Self {
+    pub fn new(source: String, module: Module, module_storage: Arc<ModuleStorage>, root: String, path: String) -> Self {
         let tokens = tokenize(source);
 
         dbg!(&tokens);
 
-        Self { tokens }
+        Self { tokens, module: Arc::new(module), module_storage, root, relative_root: path }
     }
 
     fn is_end(&self) -> bool {
@@ -63,6 +72,9 @@ impl Parser {
             }
         }
 
+        self.module.set_ast(body.clone());
+        self.module_storage.push((*self.module).clone());
+
         ASTNode::Program(body)
     }
 
@@ -91,6 +103,7 @@ impl Parser {
                 },
                 KeywordType::Layout => self.parse_layout_declaration(),
                 KeywordType::Mix => self.parse_mix(None),
+                KeywordType::Exp => self.parse_exp(),
                 _ => ASTNode::Expression(ExpressionType::Null),
             },
             Token::Identifier(_) => {
@@ -729,7 +742,41 @@ impl Parser {
         if self.curr() == Token::Keyword(KeywordType::Native) {
             self.parse_use_native()
         } else {
-            ASTNode::Expression(ExpressionType::Null)
+            self.parse_use_module()
+        }
+    }
+
+    fn parse_use_module(&mut self) -> ASTNode {
+        let mut path = String::new();
+
+        if let Token::Identifier(i) = self.go() {
+            path.push_str(&i);
+        } else {
+            panic!("Expected an identifier while parsing a module.");
+        };
+
+        while self.curr() == Token::Sign(SignType::Colon) {
+            self.go();
+            if let Token::Identifier(i) = self.curr() {
+                path.push(':');
+                path.push_str(&i);
+                self.go();
+            }
+        }
+
+        self.expect_token(Token::Sign(SignType::TildeArrow), "Expected a tilde-arrow (~>) to define the import symbol.");
+
+        let module = Module::new(path.clone());
+
+        let src = mosa_fs::read_from_path(path.clone(), self.root.clone(), self.relative_root.clone());
+
+        let mut parser = Parser::new(src, module, self.module_storage.clone(), self.root.clone(), mosa_fs::relative_from(path.clone()));
+        parser.gen_ast();
+
+        if let Token::Identifier(symbol) = self.go() {
+            ASTNode::UseModule(path, symbol)
+        } else {
+            panic!("Expected an identifier to define the imported symbol.");
         }
     }
 
@@ -1114,6 +1161,34 @@ impl Parser {
             }
         } else {
             unreachable!()
+        }
+    }
+
+    fn parse_exp(&mut self) -> ASTNode {
+        self.go();
+
+        if self.curr() == Token::Keyword(KeywordType::Fn) {
+            let fun = self.parse_fn_declaration();
+
+            self.module.push(ModuleExport::Function(
+                if let ASTNode::FunctionDeclaration(name, args, body, return_type) = fun.clone() {
+                    FunctionData {
+                        name,
+                        args,
+                        body: if let ASTNode::CodeBlock(b) = *body {
+                            b
+                        } else { unreachable!() },
+                        return_type,
+                        tied: false
+                    }
+                } else {
+                    unreachable!()
+                }
+            ));
+
+            fun
+        } else {
+            panic!("Now, exports are only supported for functions.")
         }
     }
 }

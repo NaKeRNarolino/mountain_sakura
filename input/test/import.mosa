@@ -3,7 +3,10 @@
 //        "hi"
 //    }
 //}
+use other~>x;
 
 exp fn hi() -> str {
     "hi"
 }
+
+x()

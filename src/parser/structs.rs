@@ -31,7 +31,8 @@ pub enum ASTNode {
     LayoutCreation(LayoutCreation),
     LayoutFieldAccess(String, String),
     MixStatement(String, Vec<FunctionData>),
-    InternalMulti(Vec<ASTNode>)
+    InternalMulti(Vec<ASTNode>),
+    UseModule(String, String)
 }
 
 

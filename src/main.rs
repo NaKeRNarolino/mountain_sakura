@@ -8,12 +8,14 @@ use std::time::Instant;
 use crate::global::DataType;
 use crate::global::PrimitiveDataType;
 use crate::interpreter::structs::RuntimeValue;
+use crate::modules::{Module, ModuleStorage};
 
 pub mod global;
 pub mod interpreter;
 pub mod lexer;
 pub mod parser;
 pub mod modules;
+pub mod mosa_fs;
 
 fn get_input() -> String {
     let file = fs::read_to_string("./input/main.mosa").unwrap();
@@ -24,9 +26,12 @@ fn get_input() -> String {
 fn main() {
     let file = get_input();
 
-    let mut parser = Parser::new(file);
+    let module_storage = Arc::new(ModuleStorage::new());
+    let module = Module::new("main".to_string());
+
+    let mut parser = Parser::new(file, module, module_storage.clone(), "/home/nakernarolino/RustroverProjects/mountain_sakura/input/".to_string(), "".to_string());
     let ast = parser.gen_ast();
-    let interpreter = Interpreter::new(ast.clone());
+    let interpreter = Interpreter::new(ast.clone(), module_storage);
 
     dbg!(ast);
 

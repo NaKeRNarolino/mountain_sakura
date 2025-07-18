@@ -2,24 +2,25 @@ pub mod scope;
 pub mod structs;
 
 use crate::global::DataType;
-use crate::interpreter::scope::FunctionData;
+use crate::interpreter::scope::{FunctionData, RuntimeScopeW};
 use crate::interpreter::scope::{FnArgs, RuntimeScope};
 use crate::interpreter::structs::ComplexRuntimeValue;
 use crate::interpreter::structs::{EnumData, IterablePair, LayoutData, Reference, RuntimeValue};
 use crate::parser::structs::{ASTNode, AssignmentProperty, BinaryExpression, ExpressionType, ForStatement, IfStatement, LayoutCreation, LayoutDeclaration, OnceStatement, Operand, UseNative};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+use crate::modules::{ModuleExport, ModuleStorage};
 
 pub struct Interpreter {
     program: Vec<ASTNode>,
+    module_storage: Arc<ModuleStorage>,
+    imports: RwLock<HashMap<String, ModuleExport>>
 }
 
-type RuntimeScopeW = Arc<RwLock<RuntimeScope>>;
-
 impl Interpreter {
-    pub fn new(src: ASTNode) -> Self {
+    pub fn new(src: ASTNode, module_storage: Arc<ModuleStorage>) -> Self {
         if let ASTNode::Program(program) = src {
-            Self { program }
+            Self { program, module_storage, imports: Default::default() }
         } else {
             panic!("Unable to parse program, as it's not an ASTNode::Program");
         }
@@ -29,6 +30,16 @@ impl Interpreter {
         let mut last_evaluated = RuntimeValue::Null;
 
         let scope = Arc::new(RwLock::new(scope));
+
+        for node in &self.program {
+            last_evaluated = self.eval(node, scope.clone());
+        }
+
+        last_evaluated
+    }
+
+    pub fn eval_program_w(&self, scope: RuntimeScopeW) -> RuntimeValue {
+        let mut last_evaluated = RuntimeValue::Null;
 
         for node in &self.program {
             last_evaluated = self.eval(node, scope.clone());
@@ -123,7 +134,8 @@ impl Interpreter {
 
                 RuntimeValue::Null
             },
-            ASTNode::InternalMulti(_) => unreachable!()
+            ASTNode::InternalMulti(_) => unreachable!(),
+            ASTNode::UseModule(path, symbol) => self.eval_module(path.clone(), symbol.clone())
         }
     }
 
@@ -254,9 +266,23 @@ impl Interpreter {
         if is_variable {
             scope.read().unwrap().read_variable(identifier.clone()).expect(&format!("Cannot read the variable {}, as it's not declared", identifier))
         } else {
+            let fd =
+                if let Some(f) = scope.read().unwrap().get_function(identifier.clone()) {
+                    f
+                } else {
+                    if let Some(import) = self.imports.read().unwrap().get(&identifier) {
+                        if let ModuleExport::Function(f) = import {
+                            f.clone()
+                        } else {
+                            panic!("No function `{}` defined or imported.", &identifier)
+                        }
+                    } else {
+                        panic!("No function `{}` defined or imported.", &identifier)
+                    }
+                };
             RuntimeValue::Reference(
                 Reference::Function(
-                    scope.read().unwrap().get_function(identifier).unwrap()
+                    fd
                 )
             )
         }
@@ -668,5 +694,33 @@ impl Interpreter {
 
     fn eval_layout_mix(&self, layout: String, mix: Vec<FunctionData>, scope: RuntimeScopeW) {
         scope.read().unwrap().mix_into_layout(layout.clone(), mix);
+    }
+
+    fn eval_module(&self, path: String, symbol: String) -> RuntimeValue {
+        let module = self.module_storage.get(&path).unwrap();
+
+        self.imports.write().unwrap().insert(symbol.clone(), module.exports().iter().find(|v| {
+            if let ModuleExport::Function(fd) = v {
+                if fd.name == symbol {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        }).unwrap().clone());
+
+        if !module.has_cache() {
+            let interpreter = Interpreter::new(
+                ASTNode::Program(module.ast()),
+                self.module_storage.clone()
+            );
+
+            let v = interpreter.eval_program_w(module.scope());
+
+            module.cache(v);
+        }
+        module.cached_result().unwrap()
     }
 }

@@ -1,12 +1,6 @@
 use native fn print#"mosa-native~>print";
 use native fn printLn#"mosa-native~>printLn";
 
-//use import~>hi;
+let x = use test:import~>hi;
 
-fn ty() -> num {
-    v
-}
-
-let v = 10;
-
-ty()
+x * hi()
