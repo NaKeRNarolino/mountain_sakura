@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Mutex};
 use jni::JNIEnv;
 use jni::objects::{JObject, JValue, JValueOwned};
+use jni::sys::JavaVM;
 use lazy_static::lazy_static;
 use crate::jni::jni::Modifier;
 #[derive(Clone)]
