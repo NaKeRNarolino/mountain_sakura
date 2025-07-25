@@ -6,21 +6,20 @@ use crate::interpreter::scope::{FunctionData, RuntimeScopeW};
 use crate::interpreter::scope::{FnArgs, RuntimeScope};
 use crate::interpreter::structs::ComplexRuntimeValue;
 use crate::interpreter::structs::{EnumData, IterablePair, LayoutData, Reference, RuntimeValue};
-use crate::parser::structs::{ASTNode, AssignmentProperty, BinaryExpression, ExpressionType, ForStatement, IfStatement, LayoutCreation, LayoutDeclaration, OnceStatement, Operand, UseNative};
-use std::collections::HashMap;
+use crate::parser::structs::{ASTNode, AssignmentProperty, BinaryExpression, ExpressionType, ForStatement, IfStatement, LayoutCreation, LayoutDeclaration, OnceStatement, Operand, ParserFunctionData, UseNative};
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};
 use crate::modules::{ModuleExport, ModuleStorage};
 
 pub struct Interpreter {
     program: Vec<ASTNode>,
     module_storage: Arc<ModuleStorage>,
-    imports: RwLock<HashMap<String, ModuleExport>>
 }
 
 impl Interpreter {
     pub fn new(src: ASTNode, module_storage: Arc<ModuleStorage>) -> Self {
         if let ASTNode::Program(program) = src {
-            Self { program, module_storage, imports: Default::default() }
+            Self { program, module_storage }
         } else {
             panic!("Unable to parse program, as it's not an ASTNode::Program");
         }
@@ -135,7 +134,8 @@ impl Interpreter {
                 RuntimeValue::Null
             },
             ASTNode::InternalMulti(_) => unreachable!(),
-            ASTNode::UseModule(path, symbol) => self.eval_module(path.clone(), symbol.clone())
+            ASTNode::UseModule(path, symbol) => self.eval_module(path.clone(), symbol.clone(), scope.clone()),
+            ASTNode::Lambda(args, body, return_type) => self.create_lambda(args.clone(), body.clone(), return_type.clone(), scope.clone())
         }
     }
 
@@ -270,15 +270,7 @@ impl Interpreter {
                 if let Some(f) = scope.read().unwrap().get_function(identifier.clone()) {
                     f
                 } else {
-                    if let Some(import) = self.imports.read().unwrap().get(&identifier) {
-                        if let ModuleExport::Function(f) = import {
-                            f.clone()
-                        } else {
-                            panic!("No function `{}` defined or imported.", &identifier)
-                        }
-                    } else {
-                        panic!("No function `{}` defined or imported.", &identifier)
-                    }
+                    panic!("No function `{}` defined or imported.", &identifier)
                 };
             RuntimeValue::Reference(
                 Reference::Function(
@@ -353,12 +345,9 @@ impl Interpreter {
         scope: RuntimeScopeW,
         return_type: DataType
     ) {
-        scope
-            .write()
-            .unwrap()
-            .declare_function(identifier, args, body, return_type);
+        RuntimeScope::declare_function(scope.clone(), identifier, args, body, return_type);
     }
-    //
+
     fn eval_fn_call(
         &self,
         identifier: Box<ASTNode>,
@@ -405,7 +394,7 @@ impl Interpreter {
         args: Vec<ASTNode>,
         scope: RuntimeScopeW,
     ) -> RuntimeValue {
-        let mut new_scope = RuntimeScope::new(None);
+        let mut new_scope = RuntimeScope::arc_rwlock_new(Some(fn_data.scope));
 
         for (i, (arg, data_type)) in fn_data.args.iter().enumerate() {
             // dbg!(arg, &args[i]);
@@ -414,13 +403,18 @@ impl Interpreter {
             if r#type != data_type.clone() {
                 panic!("Cannot pass value of type `{}` to function argument `{}` of type `{}`", r#type, arg, data_type)
             }
-            new_scope.declare_variable(arg.clone(), data_type.clone(), ev, true);
+            new_scope.write().unwrap().declare_variable(arg.clone(), data_type.clone(), ev, true);
         }
 
         let r = self.eval(
             &ASTNode::Program(fn_data.body),
-            Arc::new(RwLock::new(new_scope)),
+            new_scope
         );
+
+        if !scope.read().unwrap().get_value_type(&r).matches(&fn_data.return_type) {
+            panic!("Expected type {}, got {}", &fn_data.return_type, scope.read().unwrap().get_value_type(&r))
+        }
+
         r
     }
 
@@ -692,24 +686,12 @@ impl Interpreter {
         }
     }
 
-    fn eval_layout_mix(&self, layout: String, mix: Vec<FunctionData>, scope: RuntimeScopeW) {
-        scope.read().unwrap().mix_into_layout(layout.clone(), mix);
+    fn eval_layout_mix(&self, layout: String, mix: Vec<ParserFunctionData>, scope: RuntimeScopeW) {
+         RuntimeScope::mix_into_layout(scope.clone(), layout.clone(), mix);
     }
 
-    fn eval_module(&self, path: String, symbol: String) -> RuntimeValue {
+    fn eval_module(&self, path: String, symbol: String, scope: RuntimeScopeW) -> RuntimeValue {
         let module = self.module_storage.get(&path).unwrap();
-
-        self.imports.write().unwrap().insert(symbol.clone(), module.exports().iter().find(|v| {
-            if let ModuleExport::Function(fd) = v {
-                if fd.name == symbol {
-                    true
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
-        }).unwrap().clone());
 
         if !module.has_cache() {
             let interpreter = Interpreter::new(
@@ -721,6 +703,28 @@ impl Interpreter {
 
             module.cache(v);
         }
+
+        scope.read().unwrap().import(symbol.clone(), module.exports().get(&symbol).unwrap().clone());
+
         module.cached_result().unwrap()
+    }
+    
+    fn create_lambda(&self, args: FnArgs, body: Box<ASTNode>, return_type: DataType, scope: RuntimeScopeW) -> RuntimeValue {
+        RuntimeValue::Reference(Reference::Function(
+            FunctionData {
+                name: "MOSA_INTERNAL_LAMBDA".to_string(),
+                args,
+                body: {
+                    match *body {
+                        ASTNode::CodeBlock(b) => b,
+                        _ => unreachable!()
+                    }
+                },
+                return_type,
+                scope: scope.clone(),
+                accesses: HashSet::new(),
+                tied: false,
+            }
+        ))
     }
 }

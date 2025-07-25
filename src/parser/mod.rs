@@ -1,14 +1,14 @@
 use crate::global::{DataType, PrimitiveDataType};
-use crate::interpreter::scope::FunctionData;
+use crate::interpreter::scope::{FunctionData, ScopeLayoutDeclaration};
 use crate::lexer::structs::{Direction, KeywordType, OperatorType, SignType, Token};
 use crate::lexer::tokenize;
-use crate::parser::structs::ForStatement;
+use crate::parser::structs::{ForStatement, ParserFunctionData};
 use crate::parser::structs::OnceStatement;
 use crate::parser::structs::UseNative;
 use crate::parser::structs::{ASTNode, AssignmentProperty, BinaryExpression, ExpressionType, IfStatement, LayoutCreation, Operand};
 use crate::parser::structs::{FieldParserDescription, LayoutDeclaration};
 use std::collections::{HashMap, VecDeque};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use indexmap::IndexMap;
 use crate::modules::ModuleExport;
 use crate::global::ComplexDataType;
@@ -139,15 +139,27 @@ impl Parser {
         let res = Some(ASTNode::Expression(ExpressionType::Null));
 
         if let Token::Sign(sign_type) = &token {
-            if let SignType::Paren(direction) = sign_type {
-                return if *direction == Direction::Open {
+            match sign_type {
+                SignType::Paren(direction) => {
+                    return if *direction == Direction::Open {
+                        self.go();
+                        Some(self.parse_expressions())
+                        // dbg!("Removed", self.go());
+                    } else {
+                        self.go();
+                        None
+                    }
+                },
+                SignType::DoubleColon => {
                     self.go();
-                    Some(self.parse_expressions())
-                    // dbg!("Removed", self.go());
-                } else {
-                    self.go();
-                    None
+                    return match self.parse_fn_lower("MOSA_INTERNAL_LAMBDA".to_string()) {
+                        ASTNode::FunctionDeclaration(_n, a, b, r) => {
+                            Some(ASTNode::Lambda(a, b, r))
+                        }
+                        _ => unreachable!()
+                    }
                 }
+                _ => {}
             }
         }
 
@@ -463,31 +475,37 @@ impl Parser {
         dbg!(&&&&&&&&&&&&identifier_token);
         if let Token::Identifier(identifier) = identifier_token {
             self.go(); // identifier
-            if self.curr() == Token::Sign(SignType::DoubleArrow) {
-                self.parse_double_arrow_signature(identifier)
-            } else if self.curr() == Token::Sign(SignType::Paren(Direction::Open)) {
-                let args_list = self.parse_fn_args_list();
-
-                self.expect_token(
-                    Token::Sign(SignType::Arrow),
-                    "Expected an arrow (->) after the arguments.",
-                );
-
-                let data_type = self.parse_data_type();
-                
-                self.expect_token(
-                    Token::Sign(SignType::CurlyBrace(Direction::Open)),
-                    "Expected a code block.",
-                );
-                  
-                let body = self.parse_code_block();
-
-                ASTNode::FunctionDeclaration(identifier, args_list, Box::new(body), data_type)
-            } else {
-                panic!("Expected an opening parentheses.")
-            }
+            self.parse_fn_lower(identifier)
         } else {
             panic!("Expecting an identifier after the `fn` keyword.")
+        }
+    }
+
+    fn parse_fn_lower(&mut self, identifier: String) -> ASTNode {
+        if self.curr() == Token::Sign(SignType::Paren(Direction::Open)) {
+            let args_list = self.parse_fn_args_list();
+
+            self.expect_token(
+                Token::Sign(SignType::Arrow),
+                "Expected an arrow (->) after the arguments.",
+            );
+
+            let data_type = if self.curr() == Token::Sign(SignType::CurlyBrace(Direction::Open)) {
+                DataType::Primitive(PrimitiveDataType::Null)
+            } else {
+                self.parse_data_type()
+            };
+
+            self.expect_token(
+                Token::Sign(SignType::CurlyBrace(Direction::Open)),
+                "Expected a code block.",
+            );
+
+            let body = self.parse_code_block();
+
+            ASTNode::FunctionDeclaration(identifier, args_list, Box::new(body), data_type)
+        } else {
+            panic!("Expected an opening parentheses.")
         }
     }
 
@@ -1117,7 +1135,7 @@ impl Parser {
             panic!("Expected an opening curly braces.")
         }
 
-        let mut functions: Vec<FunctionData> = Vec::new();
+        let mut functions: Vec<ParserFunctionData> = Vec::new();
 
         while self.curr() != Token::Sign(SignType::CurlyBrace(Direction::Close)) {
             functions.push(self.parse_mix_function(Some(&identifier)));
@@ -1130,7 +1148,7 @@ impl Parser {
         ASTNode::MixStatement(identifier, functions)
     }
 
-    fn parse_mix_function(&mut self, identifier: Option<&String>) -> FunctionData {
+    fn parse_mix_function(&mut self, identifier: Option<&String>) -> ParserFunctionData {
         dbg!(&&&&&&self.curr());
 
         let is_tied = self.curr() == Token::Keyword(KeywordType::Tied);
@@ -1153,7 +1171,7 @@ impl Parser {
 
         if let ASTNode::FunctionDeclaration(name, args, body, return_type) = parse_fn {
             if let ASTNode::CodeBlock(code) = *body {
-                FunctionData {
+                ParserFunctionData {
                     name, args, body: code, return_type, tied: is_tied
                 }
             } else {
@@ -1170,23 +1188,55 @@ impl Parser {
         if self.curr() == Token::Keyword(KeywordType::Fn) {
             let fun = self.parse_fn_declaration();
 
-            self.module.push(ModuleExport::Function(
-                if let ASTNode::FunctionDeclaration(name, args, body, return_type) = fun.clone() {
-                    FunctionData {
-                        name,
-                        args,
-                        body: if let ASTNode::CodeBlock(b) = *body {
-                            b
-                        } else { unreachable!() },
-                        return_type,
-                        tied: false
-                    }
-                } else {
-                    unreachable!()
+            let fd = if let ASTNode::FunctionDeclaration(name, args, body, return_type) = fun.clone() {
+                ParserFunctionData {
+                    name,
+                    args,
+                    body: if let ASTNode::CodeBlock(b) = *body {
+                        b
+                    } else { unreachable!() },
+                    return_type,
+                    tied: false
                 }
-            ));
+            } else {
+                unreachable!()
+            };
+
+            // self.module.push(fd.name.clone(), ModuleExport::Function(
+            //     fd
+            // ));
 
             fun
+        } else if self.curr() == Token::Keyword(KeywordType::Layout) {
+            let layout = self.parse_layout_declaration();
+
+            if let ASTNode::LayoutDeclaration(ld) = layout.clone() {
+                let sld = ScopeLayoutDeclaration {
+                    name: ld.name,
+                    fields: ld.fields,
+                    mixed: Arc::new(RwLock::new(HashMap::new()))
+                };
+
+                self.module.push(sld.name.clone(), ModuleExport::Layout(sld));
+
+                layout
+            } else if let ASTNode::InternalMulti(ldv) = layout.clone() {
+                let ld = if let ASTNode::LayoutDeclaration(v) = ldv[0].clone() { v } else { unreachable!() };
+                
+                let sld = ScopeLayoutDeclaration {
+                    name: ld.name,
+                    fields: ld.fields,
+                    mixed: Arc::new(RwLock::new(HashMap::new()))
+                };
+
+                self.module.push(sld.name.clone(), ModuleExport::Layout(sld));
+
+                layout
+            } else {
+                unreachable!()
+            }
+        } else if self.curr() == Token::Keyword(KeywordType::Enum) {
+            unreachable!()
         } else {
             panic!("Now, exports are only supported for functions.")
         }

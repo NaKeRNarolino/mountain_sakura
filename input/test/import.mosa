@@ -9,4 +9,12 @@ exp fn hi() -> str {
     "hi"
 }
 
+exp layout Hi {
+    v: num = 10
+} mix @ {
+    tied fn double() -> num {
+        self.v * 2
+    }
+}
+
 x()

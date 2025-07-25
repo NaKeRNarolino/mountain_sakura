@@ -122,6 +122,7 @@ pub enum SignType {
     At,                    // @
     Tilde,                 // ~
     TildeArrow,            // ~>
+    DoubleColon,           // ::
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -234,5 +235,10 @@ pub fn two_element_signs_conversions() -> Vec<TwoElementSignsConversion> {
             second: Token::Operator(OperatorType::Bigger),
             result: Token::Sign(SignType::TildeArrow),
         }, // ~>
+        TwoElementSignsConversion {
+            first: Token::Sign(SignType::Colon),
+            second: Token::Sign(SignType::Colon),
+            result: Token::Sign(SignType::DoubleColon),
+        }, // ::
     ]
 }

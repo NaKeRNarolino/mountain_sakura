@@ -1,6 +1,8 @@
 use native fn print#"mosa-native~>print";
 use native fn printLn#"mosa-native~>printLn";
 
-let x = use test:import~>hi;
+let x = ::() -> str {
+    "hi"
+};
 
-x * hi()
+x()

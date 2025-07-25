@@ -1,11 +1,12 @@
 use crate::global::{ComplexDataType, ReferenceType};
 use crate::global::{DataType, NumType, PrimitiveDataType};
 use crate::interpreter::structs::{ComplexRuntimeValue, Reference, RuntimeValue};
-use crate::parser::structs::{ASTNode, FieldParserDescription, LayoutDeclaration};
-use std::collections::HashMap;
+use crate::parser::structs::{ASTNode, FieldParserDescription, LayoutDeclaration, ParserFunctionData};
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::sync::{Arc, RwLock};
 use indexmap::IndexMap;
+use crate::modules::ModuleExport;
 
 pub type FnArgs = IndexMap<String, DataType>;
 
@@ -19,12 +20,14 @@ pub struct VariableData {
     pub immut: bool,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug)]
 pub struct FunctionData {
     pub name: String,
     pub args: FnArgs,
     pub body: Vec<ASTNode>,
     pub return_type: DataType,
+    pub scope: RuntimeScopeW,
+    pub accesses: HashSet<String>,
     pub tied: bool
 }
 
@@ -38,7 +41,7 @@ pub struct EnumDefinition {
 pub struct ScopeLayoutDeclaration {
     pub name: String,
     pub fields: HashMap<String, FieldParserDescription>,
-    pub mixed: Arc<RwLock<HashMap<String, FunctionData>>>
+    pub mixed: Arc<RwLock<HashMap<String, FunctionData>>>,
 }
 
 // #[derive(Debug)]
@@ -51,6 +54,7 @@ pub struct RuntimeScope {
     bindings: HashMap<String, RuntimeValue>,
     enums: HashMap<String, EnumDefinition>,
     layouts: HashMap<String, ScopeLayoutDeclaration>,
+    imports: RwLock<HashMap<String, ModuleExport>>
 }
 
 impl Debug for RuntimeScope {
@@ -70,6 +74,7 @@ impl RuntimeScope {
             bindings: Default::default(),
             enums: Default::default(),
             layouts: Default::default(),
+            imports: Default::default(),
         }
     }
     
@@ -153,8 +158,10 @@ impl RuntimeScope {
         }
     }
 
-    pub fn declare_function(&mut self, name: String, args: FnArgs, body: Vec<ASTNode>, return_type: DataType) {
-        self.functions.insert(name.clone(), FunctionData { name, args, body, tied: false, return_type });
+    pub fn declare_function(scope: RuntimeScopeW, name: String, args: FnArgs, body: Vec<ASTNode>, return_type: DataType) {
+        let accesses = scope.read().unwrap().variables.keys().map(|k| k.clone()).collect();
+        let fd = FunctionData { name: name.clone(), args, body, tied: false, return_type, scope: scope.clone(),  accesses };
+        scope.write().unwrap().functions.insert(name.clone(), fd);
     }
 
     pub fn get_function(&self, name: String) -> Option<FunctionData> {
@@ -164,7 +171,15 @@ impl RuntimeScope {
             if let Some(parent) = &self.parent {
                 parent.read().unwrap().get_function(name)
             } else {
-                None
+                if let Some(x) = &self.get_import(&name) {
+                    if let ModuleExport::Function(fd) = x {
+                        Some(fd.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
             }
         }
     }
@@ -250,7 +265,7 @@ impl RuntimeScope {
             if let Some(parent) = &self.parent {
                 parent.read().unwrap().get_enum_data(name)
             } else {
-                None
+               None
             }
         }
     }
@@ -259,7 +274,7 @@ impl RuntimeScope {
         self.layouts.insert(layout_info.name.clone(), ScopeLayoutDeclaration {
             name: layout_info.name,
             fields: layout_info.fields,
-            mixed: Arc::new(RwLock::new(HashMap::new()))
+            mixed: Arc::new(RwLock::new(HashMap::new())),
         });
     }
 
@@ -271,13 +286,21 @@ impl RuntimeScope {
             if let Some(parent) = &self.parent {
                 parent.read().unwrap().get_layout_declaration(name)
             } else {
-                None
+                if let Some(x) = &self.get_import(&name) {
+                    if let ModuleExport::Layout(ld) = x {
+                        Some(ld.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
             }
         }
     }
 
-    pub fn mix_into_layout(&self, layout_id: String, mix_data: Vec<FunctionData>) {
-        match self.layouts.get(&layout_id) {
+    pub fn mix_into_layout(scope: RuntimeScopeW, layout_id: String, mix_data: Vec<ParserFunctionData>) {
+        match scope.read().unwrap().layouts.get(&layout_id) {
             None => {
                 panic!("Cannot mix into non-existent layout `{}`", layout_id)
             }
@@ -285,11 +308,29 @@ impl RuntimeScope {
                 let mut hm: HashMap<String, FunctionData> = HashMap::new();
 
                 for data in mix_data {
-                    hm.insert(data.name.clone(), data);
+                    hm.insert(data.name.clone(), FunctionData {
+                        name: data.name.clone(),
+                        args: data.args.clone(),
+                        body: data.body.clone(),
+                        return_type: data.return_type.clone(),
+                        tied: data.tied.clone(),
+                        scope: scope.clone(),
+                        accesses: {
+                            scope.read().unwrap().variables.keys().map(|x| x.clone()).collect()
+                        },
+                    });
                 }
 
                 v.mixed.write().unwrap().extend(hm)
             }
         }
+    }
+
+    pub fn get_import(&self, symbol: &String) -> Option<ModuleExport> {
+        self.imports.read().unwrap().get(symbol).cloned()
+    }
+
+    pub fn import(&self, symbol: String, export: ModuleExport) {
+        self.imports.write().unwrap().insert(symbol, export);
     }
 }

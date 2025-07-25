@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};
-use crate::interpreter::scope::{FunctionData, RuntimeScope, RuntimeScopeW};
+use crate::interpreter::scope::{FunctionData, RuntimeScope, RuntimeScopeW, ScopeLayoutDeclaration};
 use crate::interpreter::structs::RuntimeValue;
 use crate::parser::structs::ASTNode;
 
@@ -16,10 +16,10 @@ impl ModuleStorage {
     }
 
     pub fn push(&self, module: Module) {
-        if self.get(&module.name).is_some() {
-            panic!("Module `{}` is already defined", &module.name)
+        if self.get(&module.name).is_none() {
+            // !("Module `{}` is already defined", &module.name)
+            self.storage.write().unwrap().insert(module.name.clone(), module);
         }
-        self.storage.write().unwrap().insert(module.name.clone(), module);
     }
 
     pub fn get(&self, name: &String) -> Option<Module> {
@@ -29,7 +29,7 @@ impl ModuleStorage {
 
 #[derive(Clone, Debug)]
 pub struct Module {
-    exports: Arc<RwLock<Vec<ModuleExport>>>,
+    exports: Arc<RwLock<HashMap<String, ModuleExport>>>,
     ast: Arc<RwLock<Vec<ASTNode>>>,
     name: String,
     pub scope: RuntimeScopeW,
@@ -39,13 +39,13 @@ pub struct Module {
 #[derive(Clone, Debug)]
 pub enum ModuleExport {
     Function(FunctionData),
-    Layout
+    Layout(ScopeLayoutDeclaration)
 }
 
 impl Module {
     pub fn new(name: String) -> Module {
         Module {
-            exports: Arc::new(RwLock::new(Vec::new())),
+            exports: Arc::new(RwLock::new(HashMap::new())),
             ast: Arc::new(RwLock::new(vec![])),
             name,
             scope: RuntimeScope::arc_rwlock_new(None),
@@ -57,7 +57,7 @@ impl Module {
         *self.ast.write().unwrap() = ast;
     }
 
-    pub fn exports(&self) -> Vec<ModuleExport> {
+    pub fn exports(&self) -> HashMap<String, ModuleExport> {
         self.exports.read().unwrap().clone()
     }
 
@@ -69,8 +69,8 @@ impl Module {
         self.name.clone()
     }
 
-    pub fn push(&self, export: ModuleExport) {
-        self.exports.write().unwrap().push(export);
+    pub fn push(&self, symbol: String, export: ModuleExport) {
+        self.exports.write().unwrap().insert(symbol, export);
     }
 
     pub fn has_cache(&self) -> bool {

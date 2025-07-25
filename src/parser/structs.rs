@@ -1,6 +1,6 @@
 use crate::global::DataType;
-use crate::interpreter::scope::FunctionData;
-use std::collections::HashMap;
+use crate::interpreter::scope::{FnArgs, FunctionData, RuntimeScopeW};
+use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use indexmap::IndexMap;
 
@@ -30,9 +30,10 @@ pub enum ASTNode {
     LayoutDeclaration(LayoutDeclaration),
     LayoutCreation(LayoutCreation),
     LayoutFieldAccess(String, String),
-    MixStatement(String, Vec<FunctionData>),
+    MixStatement(String, Vec<ParserFunctionData>),
     InternalMulti(Vec<ASTNode>),
-    UseModule(String, String)
+    UseModule(String, String),
+    Lambda(IndexMap<String, DataType>, Box<ASTNode>, DataType)
 }
 
 
@@ -95,6 +96,15 @@ pub struct LayoutDeclaration {
 pub struct FieldParserDescription {
     pub type_id: String,
     pub default_value: Option<Box<ASTNode>>
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ParserFunctionData {
+    pub name: String,
+    pub args: FnArgs,
+    pub body: Vec<ASTNode>,
+    pub return_type: DataType,
+    pub tied: bool
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
