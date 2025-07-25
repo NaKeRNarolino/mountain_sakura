@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};
 use crate::interpreter::scope::{FunctionData, RuntimeScope, RuntimeScopeW, ScopeLayoutDeclaration};
 use crate::interpreter::structs::RuntimeValue;
-use crate::parser::structs::ASTNode;
+use crate::parser::structs::{ASTNode, LayoutDeclaration, ParserFunctionData};
 
 pub struct ModuleStorage {
     storage: Arc<RwLock<HashMap<String, Module>>>
@@ -29,6 +29,8 @@ impl ModuleStorage {
 
 #[derive(Clone, Debug)]
 pub struct Module {
+    unmodulated_exported_functions: Arc<RwLock<HashMap<String, ParserFunctionData>>>,
+    unmodulated_exported_layouts: Arc<RwLock<HashMap<String, LayoutDeclaration>>>,
     exports: Arc<RwLock<HashMap<String, ModuleExport>>>,
     ast: Arc<RwLock<Vec<ASTNode>>>,
     name: String,
@@ -39,7 +41,7 @@ pub struct Module {
 #[derive(Clone, Debug)]
 pub enum ModuleExport {
     Function(FunctionData),
-    Layout(ScopeLayoutDeclaration)
+    Layout(Arc<ScopeLayoutDeclaration>)
 }
 
 impl Module {
@@ -49,7 +51,9 @@ impl Module {
             ast: Arc::new(RwLock::new(vec![])),
             name,
             scope: RuntimeScope::arc_rwlock_new(None),
-            cached_result: Arc::new(RwLock::new(None))
+            cached_result: Arc::new(RwLock::new(None)),
+            unmodulated_exported_functions: Arc::new(RwLock::new(HashMap::new())),
+            unmodulated_exported_layouts: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -71,6 +75,22 @@ impl Module {
 
     pub fn push(&self, symbol: String, export: ModuleExport) {
         self.exports.write().unwrap().insert(symbol, export);
+    }
+
+    pub fn push_unmodulated_fn(&self, symbol: String, fun: ParserFunctionData) {
+        self.unmodulated_exported_functions.write().unwrap().insert(symbol, fun);
+    }
+    
+    pub fn push_unmodulated_layout(&self, symbol: String, lay: LayoutDeclaration) {
+        self.unmodulated_exported_layouts.write().unwrap().insert(symbol, lay);
+    }
+
+    pub fn unmodulated_exported_functions(&self) -> HashMap<String, ParserFunctionData> {
+        self.unmodulated_exported_functions.read().unwrap().clone()
+    }
+
+    pub fn unmodulated_exported_layouts(&self) -> HashMap<String, LayoutDeclaration> {
+        self.unmodulated_exported_layouts.read().unwrap().clone()
     }
 
     pub fn has_cache(&self) -> bool {

@@ -1202,34 +1202,28 @@ impl Parser {
                 unreachable!()
             };
 
-            // self.module.push(fd.name.clone(), ModuleExport::Function(
-            //     fd
-            // ));
+            self.module.push_unmodulated_fn(fd.name.clone(),
+                fd
+            );
 
             fun
         } else if self.curr() == Token::Keyword(KeywordType::Layout) {
             let layout = self.parse_layout_declaration();
 
             if let ASTNode::LayoutDeclaration(ld) = layout.clone() {
-                let sld = ScopeLayoutDeclaration {
-                    name: ld.name,
-                    fields: ld.fields,
-                    mixed: Arc::new(RwLock::new(HashMap::new()))
-                };
-
-                self.module.push(sld.name.clone(), ModuleExport::Layout(sld));
+                self.module.push_unmodulated_layout(ld.name.clone(), ld);
 
                 layout
             } else if let ASTNode::InternalMulti(ldv) = layout.clone() {
                 let ld = if let ASTNode::LayoutDeclaration(v) = ldv[0].clone() { v } else { unreachable!() };
                 
-                let sld = ScopeLayoutDeclaration {
-                    name: ld.name,
-                    fields: ld.fields,
-                    mixed: Arc::new(RwLock::new(HashMap::new()))
-                };
+                // let sld = ScopeLayoutDeclaration {
+                //     name: ld.name,
+                //     fields: ld.fields,
+                //     mixed: Arc::new(RwLock::new(HashMap::new()))
+                // };
 
-                self.module.push(sld.name.clone(), ModuleExport::Layout(sld));
+                self.module.push_unmodulated_layout(ld.name.clone(), ld);
 
                 layout
             } else {

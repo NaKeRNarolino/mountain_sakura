@@ -53,7 +53,7 @@ pub struct RuntimeScope {
     defined_native_functions: HashMap<String, String>,
     bindings: HashMap<String, RuntimeValue>,
     enums: HashMap<String, EnumDefinition>,
-    layouts: HashMap<String, ScopeLayoutDeclaration>,
+    layouts: HashMap<String, Arc<ScopeLayoutDeclaration>>,
     imports: RwLock<HashMap<String, ModuleExport>>
 }
 
@@ -271,15 +271,15 @@ impl RuntimeScope {
     }
 
     pub fn declare_layout(&mut self, layout_info: LayoutDeclaration) {
-        self.layouts.insert(layout_info.name.clone(), ScopeLayoutDeclaration {
+        self.layouts.insert(layout_info.name.clone(), Arc::new(ScopeLayoutDeclaration {
             name: layout_info.name,
             fields: layout_info.fields,
             mixed: Arc::new(RwLock::new(HashMap::new())),
-        });
+        }));
     }
 
 
-    pub fn get_layout_declaration(&self, name: &String) -> Option<ScopeLayoutDeclaration> {
+    pub fn get_layout_declaration(&self, name: &String) -> Option<Arc<ScopeLayoutDeclaration>> {
         if let Some(layout) = self.layouts.get(name) {
             Some(layout.clone())
         } else {

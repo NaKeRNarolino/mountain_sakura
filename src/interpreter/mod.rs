@@ -694,12 +694,38 @@ impl Interpreter {
         let module = self.module_storage.get(&path).unwrap();
 
         if !module.has_cache() {
+            let unmodulated_fns = module.unmodulated_exported_functions();
+            
+            let unmodulated_lays = module.unmodulated_exported_layouts();
+            
+            for (k, v) in unmodulated_fns {
+                module.push(k.clone(), ModuleExport::Function(
+                    FunctionData {
+                        name: v.name,
+                        args: v.args,
+                        tied: false,
+                        accesses: HashSet::new(),
+                        body: v.body,
+                        return_type: v.return_type,
+                        scope: module.scope.clone()
+                    }
+                ))
+            }
+            
             let interpreter = Interpreter::new(
                 ASTNode::Program(module.ast()),
                 self.module_storage.clone()
             );
 
             let v = interpreter.eval_program_w(module.scope());
+
+            for (k, v) in unmodulated_lays {
+                let r = module.scope().read().unwrap().get_layout_declaration(&k);
+                
+                module.push(k.clone(), ModuleExport::Layout(
+                    r.unwrap().clone()
+                ))
+            }
 
             module.cache(v);
         }
