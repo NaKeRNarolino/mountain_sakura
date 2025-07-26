@@ -1,2 +1,2 @@
-pub mod jni;
 pub mod calls;
+pub mod jni;

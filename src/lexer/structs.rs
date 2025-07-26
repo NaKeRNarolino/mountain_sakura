@@ -5,7 +5,7 @@ pub struct Token {
     pub file_name: String,
     pub line: usize,
     pub column: usize,
-    pub value: TokenValue
+    pub value: TokenValue,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -44,7 +44,7 @@ pub enum KeywordType {
     Block,
     Layout,
     Mix,
-    Tied
+    Tied,
 }
 
 pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
@@ -69,7 +69,7 @@ pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
         ("block", KeywordType::Block),
         ("layout", KeywordType::Layout),
         ("mix", KeywordType::Mix),
-        ("tied", KeywordType::Tied)
+        ("tied", KeywordType::Tied),
     ])
 }
 
@@ -151,7 +151,7 @@ pub fn simple_sign_types() -> HashMap<char, SignType> {
         ('#', SignType::HashSign),
         ('^', SignType::Caret),
         ('@', SignType::At),
-        ('~', SignType::Tilde)
+        ('~', SignType::Tilde),
     ])
 }
 

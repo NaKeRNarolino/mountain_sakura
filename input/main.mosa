@@ -10,4 +10,6 @@ use test:other~>quadruple;
 //quadruple(Hi { v = 7.5 })
 
 //immut let x: num;
-exp let X { }
+let y: nul num = null;
+y = 10;
+y

@@ -1,7 +1,10 @@
 use std::collections::VecDeque;
 
+use crate::lexer::structs::{
+    reserved_keywords, simple_operator_types, simple_sign_types, two_element_signs_conversions,
+    Direction, SignType, Token, TokenValue,
+};
 use regex::RegexBuilder;
-use crate::lexer::structs::{reserved_keywords, simple_operator_types, simple_sign_types, two_element_signs_conversions, Direction, SignType, Token, TokenValue};
 pub mod structs;
 
 fn is_skippable(input: char) -> bool {
@@ -27,10 +30,11 @@ fn resolve_string_to_token(input: String) -> TokenValue {
 pub fn tokenize(file_name: String, raw_input: String) -> VecDeque<Token> {
     let mut tokens: Vec<Token> = vec![];
 
-    let input = RegexBuilder::new(r"(\/\/).*").build().unwrap().replace_all(
-        &raw_input,
-        ""
-    ).to_string();
+    let input = RegexBuilder::new(r"(\/\/).*")
+        .build()
+        .unwrap()
+        .replace_all(&raw_input, "")
+        .to_string();
 
     let mut input_chars: VecDeque<char> = input.chars().collect();
     let mut making_string: bool = false;
@@ -53,7 +57,8 @@ pub fn tokenize(file_name: String, raw_input: String) -> VecDeque<Token> {
                     tokens.push(Token {
                         value: TokenValue::String(string.clone().replace("\\\"", "\"")),
                         file_name: file_name.clone(),
-                        line, column
+                        line,
+                        column,
                     });
                     string = String::from("");
                 }
@@ -68,26 +73,61 @@ pub fn tokenize(file_name: String, raw_input: String) -> VecDeque<Token> {
             }
 
             if is_skippable(char) {
-                tokens.push(Token { value: TokenValue::Skip, line, column, file_name: file_name.clone() });
+                tokens.push(Token {
+                    value: TokenValue::Skip,
+                    line,
+                    column,
+                    file_name: file_name.clone(),
+                });
                 continue;
             }
             // PARENS
             if char == '(' {
-                tokens.push(Token { value: TokenValue::Sign(SignType::Paren(Direction::Open)), line, column, file_name: file_name.clone() });
+                tokens.push(Token {
+                    value: TokenValue::Sign(SignType::Paren(Direction::Open)),
+                    line,
+                    column,
+                    file_name: file_name.clone(),
+                });
             } else if char == ')' {
-                tokens.push(Token { value: TokenValue::Sign(SignType::Paren(Direction::Close)), line, column, file_name: file_name.clone(), })
+                tokens.push(Token {
+                    value: TokenValue::Sign(SignType::Paren(Direction::Close)),
+                    line,
+                    column,
+                    file_name: file_name.clone(),
+                })
             }
             // Braces
             else if char == '[' {
-                tokens.push(Token { value: TokenValue::Sign(SignType::Brace(Direction::Open)), line, column, file_name: file_name.clone() })
+                tokens.push(Token {
+                    value: TokenValue::Sign(SignType::Brace(Direction::Open)),
+                    line,
+                    column,
+                    file_name: file_name.clone(),
+                })
             } else if char == ']' {
-                tokens.push(Token { value: TokenValue::Sign(SignType::Brace(Direction::Close)), line, column, file_name: file_name.clone() })
+                tokens.push(Token {
+                    value: TokenValue::Sign(SignType::Brace(Direction::Close)),
+                    line,
+                    column,
+                    file_name: file_name.clone(),
+                })
             }
             // Curly-s
             else if char == '{' {
-                tokens.push(Token { value: TokenValue::Sign(SignType::CurlyBrace(Direction::Open)), line, column, file_name: file_name.clone() })
+                tokens.push(Token {
+                    value: TokenValue::Sign(SignType::CurlyBrace(Direction::Open)),
+                    line,
+                    column,
+                    file_name: file_name.clone(),
+                })
             } else if char == '}' {
-                tokens.push(Token { value: TokenValue::Sign(SignType::CurlyBrace(Direction::Close)), line, column, file_name: file_name.clone() })
+                tokens.push(Token {
+                    value: TokenValue::Sign(SignType::CurlyBrace(Direction::Close)),
+                    line,
+                    column,
+                    file_name: file_name.clone(),
+                })
             } else if let Some(sign_type) = simple_sign_types().get(&char).cloned() {
                 if let Some(last_el) = tokens.last().cloned() {
                     let mut found = false;
@@ -98,15 +138,30 @@ pub fn tokenize(file_name: String, raw_input: String) -> VecDeque<Token> {
                         {
                             found = true;
                             tokens.pop();
-                            tokens.push(Token { value: conversion.result, line, column, file_name: file_name.clone() });
+                            tokens.push(Token {
+                                value: conversion.result,
+                                line,
+                                column,
+                                file_name: file_name.clone(),
+                            });
                         }
                     }
 
                     if !found {
-                        tokens.push(Token { value: TokenValue::Sign(sign_type), line, column, file_name: file_name.clone() });
+                        tokens.push(Token {
+                            value: TokenValue::Sign(sign_type),
+                            line,
+                            column,
+                            file_name: file_name.clone(),
+                        });
                     }
                 } else {
-                    tokens.push(Token { value: TokenValue::Sign(sign_type), line, column, file_name: file_name.clone() });
+                    tokens.push(Token {
+                        value: TokenValue::Sign(sign_type),
+                        line,
+                        column,
+                        file_name: file_name.clone(),
+                    });
                 }
             } else if let Some(op) = simple_operator_types()
                 .get(format!("{}", char).as_str())
@@ -121,15 +176,30 @@ pub fn tokenize(file_name: String, raw_input: String) -> VecDeque<Token> {
                         {
                             found = true;
                             tokens.pop();
-                            tokens.push(Token { value: conversion.result, line, column, file_name: file_name.clone() });
+                            tokens.push(Token {
+                                value: conversion.result,
+                                line,
+                                column,
+                                file_name: file_name.clone(),
+                            });
                         }
                     }
 
                     if !found {
-                        tokens.push(Token { value: TokenValue::Operator(op), line, column, file_name: file_name.clone() });
+                        tokens.push(Token {
+                            value: TokenValue::Operator(op),
+                            line,
+                            column,
+                            file_name: file_name.clone(),
+                        });
                     }
                 } else {
-                    tokens.push(Token { value: TokenValue::Operator(op), line, column, file_name: file_name.clone() });
+                    tokens.push(Token {
+                        value: TokenValue::Operator(op),
+                        line,
+                        column,
+                        file_name: file_name.clone(),
+                    });
                 }
             } else {
                 // STRINGS OR NUMBERS
@@ -148,7 +218,12 @@ pub fn tokenize(file_name: String, raw_input: String) -> VecDeque<Token> {
                             identifier_string.pop();
                         }
 
-                        tokens.push(Token{ value: resolve_string_to_token(identifier_string), line, column, file_name: file_name.clone() });
+                        tokens.push(Token {
+                            value: resolve_string_to_token(identifier_string),
+                            line,
+                            column,
+                            file_name: file_name.clone(),
+                        });
 
                         // input_chars.push_back(iter_char);
                         continue;
@@ -167,7 +242,12 @@ pub fn tokenize(file_name: String, raw_input: String) -> VecDeque<Token> {
                                 identifier_string.pop();
                             }
 
-                            tokens.push(Token { value: resolve_string_to_token(identifier_string), line, column, file_name: file_name.clone() });
+                            tokens.push(Token {
+                                value: resolve_string_to_token(identifier_string),
+                                line,
+                                column,
+                                file_name: file_name.clone(),
+                            });
 
                             // input_chars.push_back(iter_char);
 
@@ -182,7 +262,8 @@ pub fn tokenize(file_name: String, raw_input: String) -> VecDeque<Token> {
                     number_str.push(char);
 
                     if input_chars.is_empty()
-                        || (input_chars[0] == '.' && input_chars.get(1).unwrap_or(&'.').clone() == '.')
+                        || (input_chars[0] == '.'
+                            && input_chars.get(1).unwrap_or(&'.').clone() == '.')
                         || (!input_chars[0].is_numeric() && input_chars[0] != '.')
                         || is_skippable(input_chars[0])
                     {
@@ -190,7 +271,12 @@ pub fn tokenize(file_name: String, raw_input: String) -> VecDeque<Token> {
                             number_str.pop();
                         }
 
-                        tokens.push(Token { value: TokenValue::Number(number_str.parse::<f64>().unwrap()), line, column, file_name: file_name.clone() });
+                        tokens.push(Token {
+                            value: TokenValue::Number(number_str.parse::<f64>().unwrap()),
+                            line,
+                            column,
+                            file_name: file_name.clone(),
+                        });
 
                         // input_chars.push_back(iter_char);
                         continue;
@@ -202,7 +288,8 @@ pub fn tokenize(file_name: String, raw_input: String) -> VecDeque<Token> {
 
                         if input_chars.is_empty()
                             || (!input_chars[0].is_numeric() && input_chars[0] != '.')
-                            || (input_chars[0] == '.' && input_chars.get(1).unwrap_or(&'.').clone() == '.')
+                            || (input_chars[0] == '.'
+                                && input_chars.get(1).unwrap_or(&'.').clone() == '.')
                             || is_skippable(input_chars[0])
                         {
                             if number_str.chars().last().unwrap_or('!') == '\r' {
@@ -216,7 +303,12 @@ pub fn tokenize(file_name: String, raw_input: String) -> VecDeque<Token> {
 
                             dbg!(&number_str);
 
-                            tokens.push(Token { value: TokenValue::Number(number_str.parse::<f64>().unwrap()), line, column, file_name: file_name.clone() });
+                            tokens.push(Token {
+                                value: TokenValue::Number(number_str.parse::<f64>().unwrap()),
+                                line,
+                                column,
+                                file_name: file_name.clone(),
+                            });
 
                             // input_chars.push_back(iter_char);
 
@@ -230,9 +322,17 @@ pub fn tokenize(file_name: String, raw_input: String) -> VecDeque<Token> {
         }
     }
 
-    tokens = tokens.into_iter().filter(|x| &x.value != &TokenValue::Skip).collect();
+    tokens = tokens
+        .into_iter()
+        .filter(|x| &x.value != &TokenValue::Skip)
+        .collect();
 
-    tokens.push(Token { value: TokenValue::End, line, column, file_name: file_name.clone() });
+    tokens.push(Token {
+        value: TokenValue::End,
+        line,
+        column,
+        file_name: file_name.clone(),
+    });
 
     tokens.into()
 }

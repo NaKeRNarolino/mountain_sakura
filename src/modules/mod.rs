@@ -1,11 +1,13 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, RwLock};
-use crate::interpreter::scope::{FunctionData, RuntimeScope, RuntimeScopeW, ScopeLayoutDeclaration};
+use crate::interpreter::scope::{
+    FunctionData, RuntimeScope, RuntimeScopeW, ScopeLayoutDeclaration,
+};
 use crate::interpreter::structs::RuntimeValue;
 use crate::parser::structs::{ASTNode, LayoutDeclaration, ParserFunctionData};
+use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, RwLock};
 
 pub struct ModuleStorage {
-    storage: Arc<RwLock<HashMap<String, Module>>>
+    storage: Arc<RwLock<HashMap<String, Module>>>,
 }
 
 impl ModuleStorage {
@@ -18,7 +20,10 @@ impl ModuleStorage {
     pub fn push(&self, module: Module) {
         if self.get(&module.name).is_none() {
             // !("Module `{}` is already defined", &module.name)
-            self.storage.write().unwrap().insert(module.name.clone(), module);
+            self.storage
+                .write()
+                .unwrap()
+                .insert(module.name.clone(), module);
         }
     }
 
@@ -35,13 +40,13 @@ pub struct Module {
     ast: Arc<RwLock<Vec<ASTNode>>>,
     name: String,
     pub scope: RuntimeScopeW,
-    cached_result: Arc<RwLock<Option<RuntimeValue>>>
+    cached_result: Arc<RwLock<Option<RuntimeValue>>>,
 }
 
 #[derive(Clone, Debug)]
 pub enum ModuleExport {
     Function(FunctionData),
-    Layout(Arc<ScopeLayoutDeclaration>)
+    Layout(Arc<ScopeLayoutDeclaration>),
 }
 
 impl Module {
@@ -78,11 +83,17 @@ impl Module {
     }
 
     pub fn push_unmodulated_fn(&self, symbol: String, fun: ParserFunctionData) {
-        self.unmodulated_exported_functions.write().unwrap().insert(symbol, fun);
+        self.unmodulated_exported_functions
+            .write()
+            .unwrap()
+            .insert(symbol, fun);
     }
-    
+
     pub fn push_unmodulated_layout(&self, symbol: String, lay: LayoutDeclaration) {
-        self.unmodulated_exported_layouts.write().unwrap().insert(symbol, lay);
+        self.unmodulated_exported_layouts
+            .write()
+            .unwrap()
+            .insert(symbol, lay);
     }
 
     pub fn unmodulated_exported_functions(&self) -> HashMap<String, ParserFunctionData> {
