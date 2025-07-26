@@ -33,7 +33,8 @@ pub enum ASTNode {
     MixStatement(String, Vec<ParserFunctionData>),
     InternalMulti(Vec<ASTNode>),
     UseModule(String, String),
-    Lambda(IndexMap<String, DataType>, Box<ASTNode>, DataType)
+    Lambda(IndexMap<String, DataType>, Box<ASTNode>, DataType),
+    InternalStop
 }
 
 

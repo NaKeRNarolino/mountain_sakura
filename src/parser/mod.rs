@@ -1,6 +1,6 @@
 use crate::global::{DataType, PrimitiveDataType};
 use crate::interpreter::scope::{FunctionData, ScopeLayoutDeclaration};
-use crate::lexer::structs::{Direction, KeywordType, OperatorType, SignType, Token};
+use crate::lexer::structs::{Direction, KeywordType, OperatorType, SignType, Token, TokenValue};
 use crate::lexer::tokenize;
 use crate::parser::structs::{ForStatement, ParserFunctionData};
 use crate::parser::structs::OnceStatement;
@@ -8,12 +8,14 @@ use crate::parser::structs::UseNative;
 use crate::parser::structs::{ASTNode, AssignmentProperty, BinaryExpression, ExpressionType, IfStatement, LayoutCreation, Operand};
 use crate::parser::structs::{FieldParserDescription, LayoutDeclaration};
 use std::collections::{HashMap, VecDeque};
+use std::process::exit;
 use std::sync::{Arc, RwLock};
 use indexmap::IndexMap;
 use crate::modules::ModuleExport;
 use crate::global::ComplexDataType;
 use crate::global::ReferenceType::Function;
 use crate::modules::{Module, ModuleStorage};
+use crate::{err, logging};
 use crate::mosa_fs;
 
 pub mod structs;
@@ -21,43 +23,67 @@ pub mod structs;
 #[derive(Clone)]
 pub struct Parser {
     tokens: VecDeque<Token>,
+    last: Token,
     module: Arc<Module>,
     module_storage: Arc<ModuleStorage>,
     root: String,
-    relative_root: String
+    relative_root: String,
+    should_end: bool
 }
 
 impl Parser {
+    pub fn file_name(&self) -> String {
+        self.module.name()
+    }
+
+    pub fn set_end(&mut self) {
+        self.should_end = true
+    }
+
     pub fn new(source: String, module: Module, module_storage: Arc<ModuleStorage>, root: String, path: String) -> Self {
-        let tokens = tokenize(source);
+        let tokens = tokenize(module.name(), source);
 
         dbg!(&tokens);
 
-        Self { tokens, module: Arc::new(module), module_storage, root, relative_root: path }
+        Self { tokens, last: Parser::end_t(), module: Arc::new(module), module_storage, root, relative_root: path, should_end: false }
     }
 
     fn is_end(&self) -> bool {
         if self.tokens.is_empty() {
             true
         } else {
-            self.tokens[0] == Token::End
+            self.tokens[0].value == TokenValue::End
         }
+    }
+
+    fn end(&self) -> Token {
+        Token { value: TokenValue::End, line: 0, column: 0, file_name: self.file_name() }
+    }
+
+    fn end_t() -> Token {
+        Token { value: TokenValue::End, line: 0, column: 0, file_name: "FILE_NAME".to_string() }
     }
 
     fn curr(&self) -> Token {
         if self.tokens.is_empty() {
-            Token::End
+            self.end()
         } else {
             self.tokens[0].clone()
         }
     }
 
     fn go(&mut self) -> Token {
-        self.tokens.pop_front().unwrap_or(Token::End).clone()
+        self.last =
+            self.tokens.pop_front().unwrap_or(self.end()).clone();
+        self.last.clone()
+    }
+
+    fn last(&self) -> Token {
+        self.last.clone()
     }
 
     fn peek(&mut self) -> Token {
-        self.tokens.get(1).cloned().unwrap_or(Token::End)
+        self.tokens.get(1).cloned().unwrap_or(self.end())
     }
 
     pub fn gen_ast(&mut self) -> ASTNode {
@@ -70,6 +96,10 @@ impl Parser {
             } else {
                 body.push(parse);
             }
+
+            if self.should_end {
+                exit(100);
+            }
         }
 
         self.module.set_ast(body.clone());
@@ -80,8 +110,8 @@ impl Parser {
 
     fn parse_expressions(&mut self) -> ASTNode {
         dbg!(&&&self.curr());
-        match self.curr() {
-            Token::Keyword(keyword) => match keyword {
+        match self.curr().value {
+            TokenValue::Keyword(keyword) => match keyword {
                 KeywordType::Let => self.parse_variable_declaration(),
                 KeywordType::Const => self.parse_variable_declaration(),
                 KeywordType::Immut => self.parse_variable_declaration(),
@@ -106,21 +136,21 @@ impl Parser {
                 KeywordType::Exp => self.parse_exp(),
                 _ => ASTNode::Expression(ExpressionType::Null),
             },
-            Token::Identifier(_) => {
+            TokenValue::Identifier(_) => {
                 self.parse_start_expr()
             }
-            Token::Boolean(value) => {
+            TokenValue::Boolean(value) => {
                 self.go();
                 ASTNode::Boolean(value)
             }
-            Token::Operator(operator_type) => {
+            TokenValue::Operator(operator_type) => {
                 if operator_type == OperatorType::SelfAssign {
                     self.parse_self_assign_expression()
                 } else {
                     self.parse_add_expressions()
                 }
             }
-            Token::Sign(sign_type) => {
+            TokenValue::Sign(sign_type) => {
                 if sign_type == SignType::Paren(Direction::Open) {
                     self.parse_repeat_expression()
                 } else {
@@ -138,7 +168,7 @@ impl Parser {
 
         let res = Some(ASTNode::Expression(ExpressionType::Null));
 
-        if let Token::Sign(sign_type) = &token {
+        if let TokenValue::Sign(sign_type) = &token.value {
             match sign_type {
                 SignType::Paren(direction) => {
                     return if *direction == Direction::Open {
@@ -163,23 +193,23 @@ impl Parser {
             }
         }
 
-        if let Token::String(v) = token.clone() {
+        if let TokenValue::String(v) = token.clone().value {
             self.go();
             return Some(ASTNode::String(v));
-        } else if let Token::Number(v) = token.clone() {
+        } else if let TokenValue::Number(v) = token.clone().value {
             self.go();
             return Some(ASTNode::Number(v));
-        } else if let Token::Identifier(v) = token.clone() {
+        } else if let TokenValue::Identifier(v) = token.clone().value {
             self.go();
-            if self.curr() == Token::Sign(SignType::Arrow) {
+            if self.curr().value == TokenValue::Sign(SignType::Arrow) {
                 return Some(self.parse_complex_type_access(&v))
-            } else if self.curr() == Token::Sign(SignType::CurlyBrace(Direction::Open)) {
+            } else if self.curr().value == TokenValue::Sign(SignType::CurlyBrace(Direction::Open)) {
                 return Some(self.parse_layout_creation(&v))
-            } else if self.curr() == Token::Sign(SignType::Dot) {
+            } else if self.curr().value == TokenValue::Sign(SignType::Dot) {
                 return Some(self.parse_layout_property_access(&v))
             }
             return Some(ASTNode::Identifier(v));
-        } else if let Token::Sign(sign_type) = token.clone() {
+        } else if let TokenValue::Sign(sign_type) = token.clone().value {
             if let SignType::Semicolon = sign_type {
                 self.go();
                 return Some(ASTNode::Expression(ExpressionType::Null));
@@ -203,10 +233,10 @@ impl Parser {
         let mut left = self.parse_add_expressions();
         let token = self.curr();
 
-        while token == Token::Sign(SignType::DoubleDot)
+        while token.value == TokenValue::Sign(SignType::DoubleDot)
         {
             let operator = self.curr();
-            if operator != Token::Sign(SignType::DoubleDot) {
+            if operator.value != TokenValue::Sign(SignType::DoubleDot) {
                 break;
             }
             self.go();
@@ -227,17 +257,17 @@ impl Parser {
         let mut left = self.parse_multiply_expressions();
         let token = self.curr();
 
-        while token == Token::Operator(OperatorType::Plus)
-            || token == Token::Operator(OperatorType::Minus)
+        while token.value == TokenValue::Operator(OperatorType::Plus)
+            || token.value == TokenValue::Operator(OperatorType::Minus)
         {
             let operator = self.curr();
-            if operator != Token::Operator(OperatorType::Plus)
-                && operator != Token::Operator(OperatorType::Minus)
+            if operator.value != TokenValue::Operator(OperatorType::Plus)
+                && operator.value != TokenValue::Operator(OperatorType::Minus)
             {
                 break;
             }
             self.go();
-            let operand = if operator == Token::Operator(OperatorType::Plus) {
+            let operand = if operator.value == TokenValue::Operator(OperatorType::Plus) {
                 Operand::Plus
             } else {
                 Operand::Minus
@@ -256,29 +286,39 @@ impl Parser {
 
     fn parse_variable_declaration(&mut self) -> ASTNode {
         let let_or_const = self.go();
-        let is_immut = let_or_const == Token::Keyword(KeywordType::Immut);
+        let is_immut = let_or_const.value == TokenValue::Keyword(KeywordType::Immut);
         if is_immut {
             self.expect_token(
-                Token::Keyword(KeywordType::Let),
+                TokenValue::Keyword(KeywordType::Let),
                 "After immut should follow the let keyword",
             );
         }
 
         let identifier: String;
+        let tk= self.go();
 
-        if let Token::Identifier(ident) = self.go() {
+        if let TokenValue::Identifier(ident) = tk.value {
             identifier = ident;
         } else {
-            panic!(
-                "Cannot parse a variable declaration, as an identifier is not passed after `let`."
+            logging::err!(
+                &tk.file_name, tk.line, tk.column,
+                "Cannot parse a variable declaration, as an identifier is not passed after `let`.",
             );
+            self.set_end();
+            return ASTNode::InternalStop;
         }
         
         let mut data_type = DataType::InternalInfer;
         
-        if self.curr() != Token::Sign(SignType::Colon) {
+        if self.curr().value != TokenValue::Sign(SignType::Colon) {
             if is_immut {
-                panic!("Cannot declare an immutable variable without a type.")
+                let tk = self.curr();
+                logging::err!(
+                    &self.curr().file_name, self.curr().line, self.curr().column,
+                    "Cannot declare an immutable without a type."
+                );
+                self.set_end();
+                return ASTNode::InternalStop;
             }
         } else {
             self.go();
@@ -286,9 +326,15 @@ impl Parser {
             data_type = self.parse_data_type();
         }
 
-        if self.go() != Token::Operator(OperatorType::Equal) {
+        if self.go().value != TokenValue::Operator(OperatorType::Equal) {
             if is_immut {
-                panic!("Declaring immutables requires a value.")
+                let tok = self.curr();
+                logging::err!(
+                    &tok.file_name, tok.line, tok.column,
+                    "Declaring immutables requires a value.",
+                );
+                self.set_end();
+                return ASTNode::InternalStop;
             }
         }
         
@@ -302,17 +348,17 @@ impl Parser {
         let token = self.curr();
 
 
-        while token == Token::Operator(OperatorType::Multiply)
-            || token == Token::Operator(OperatorType::Divide)
+        while token.value == TokenValue::Operator(OperatorType::Multiply)
+            || token.value == TokenValue::Operator(OperatorType::Divide)
         {
             let operator = self.curr();
-            if operator != Token::Operator(OperatorType::Multiply)
-                && operator != Token::Operator(OperatorType::Divide)
+            if operator.value != TokenValue::Operator(OperatorType::Multiply)
+                && operator.value != TokenValue::Operator(OperatorType::Divide)
             {
                 break;
             }
             self.go();
-            let operand = if operator == Token::Operator(OperatorType::Multiply) {
+            let operand = if operator.value == TokenValue::Operator(OperatorType::Multiply) {
                 Operand::Multiply
             } else {
                 Operand::Divide
@@ -334,16 +380,16 @@ impl Parser {
         let token = self.curr();
 
 
-        while token == Token::Sign(SignType::Equality) || token == Token::Sign(SignType::Inequality)
+        while token.value == TokenValue::Sign(SignType::Equality) || token.value == TokenValue::Sign(SignType::Inequality)
         {
             let operator = self.curr();
-            if operator != Token::Sign(SignType::Equality)
-                && operator != Token::Sign(SignType::Inequality)
+            if operator.value != TokenValue::Sign(SignType::Equality)
+                && operator.value != TokenValue::Sign(SignType::Inequality)
             {
                 break;
             }
             self.go();
-            let operand = if operator == Token::Sign(SignType::Equality) {
+            let operand = if operator.value == TokenValue::Sign(SignType::Equality) {
                 Operand::Equality
             } else {
                 Operand::Inequality
@@ -365,22 +411,22 @@ impl Parser {
         let token = self.curr();
 
 
-        while token == Token::Operator(OperatorType::Bigger)
-            || token == Token::Operator(OperatorType::Smaller)
-            || token == Token::Operator(OperatorType::BiggerEqual)
-            || token == Token::Operator(OperatorType::SmallerEqual)
+        while token.value == TokenValue::Operator(OperatorType::Bigger)
+            || token.value == TokenValue::Operator(OperatorType::Smaller)
+            || token.value == TokenValue::Operator(OperatorType::BiggerEqual)
+            || token.value == TokenValue::Operator(OperatorType::SmallerEqual)
         {
             let operator = self.curr();
-            if !(operator == Token::Operator(OperatorType::Bigger)
-                || operator == Token::Operator(OperatorType::Smaller)
-                || operator == Token::Operator(OperatorType::BiggerEqual)
-                || operator == Token::Operator(OperatorType::SmallerEqual))
+            if !(operator.value == TokenValue::Operator(OperatorType::Bigger)
+                || operator.value == TokenValue::Operator(OperatorType::Smaller)
+                || operator.value == TokenValue::Operator(OperatorType::BiggerEqual)
+                || operator.value == TokenValue::Operator(OperatorType::SmallerEqual))
             {
                 break;
             }
             self.go();
-            let operand = match operator {
-                Token::Operator(t) => match t {
+            let operand = match operator.value {
+                TokenValue::Operator(t) => match t {
                     OperatorType::Bigger => Operand::Bigger,
                     OperatorType::Smaller => Operand::Smaller,
                     OperatorType::BiggerEqual => Operand::BiggerEqual,
@@ -415,10 +461,10 @@ impl Parser {
         let mut left = self.parse_double_dot_expressions();
         let token = self.curr();
 
-        while token == Token::Operator(OperatorType::Equal)
+        while token.value == TokenValue::Operator(OperatorType::Equal)
         {
             let operator = self.curr();
-            if operator != Token::Operator(OperatorType::Equal) {
+            if operator.value != TokenValue::Operator(OperatorType::Equal) {
                 break;
             }
             self.go();
@@ -441,26 +487,18 @@ impl Parser {
         let expr = self.parse_expressions();
 
         ASTNode::Assignment(Self::get_assignment_property(&assignment_thing), Box::new(expr))
-
-
-        // let identifier_token = self.curr();
-        //
-        // if let Token::Identifier(identifier) = identifier_token {
-        //     } else {
-        //     panic!("Cannot use self-assign operator without an identifier.");
-        // }
     }
 
     fn parse_repeat_expression(&mut self) -> ASTNode {
         self.go();
         let operation = self.parse_expressions();
-        if self.curr() == Token::Sign(SignType::Paren(Direction::Close)) {
+        if self.curr().value == TokenValue::Sign(SignType::Paren(Direction::Close)) {
             self.go();
         }
         let operator = self.curr();
 
 
-        if operator == Token::Operator(OperatorType::Repeat) {
+        if operator.value == TokenValue::Operator(OperatorType::Repeat) {
             self.go(); // operator
             let num_token = self.parse_expressions();
             ASTNode::RepeatOperation(Box::new(num_token), Box::new(operation))
@@ -473,31 +511,33 @@ impl Parser {
         self.go(); // fn keyword
         let identifier_token = self.curr();
         dbg!(&&&&&&&&&&&&identifier_token);
-        if let Token::Identifier(identifier) = identifier_token {
+        if let TokenValue::Identifier(identifier) = identifier_token.value {
             self.go(); // identifier
             self.parse_fn_lower(identifier)
         } else {
-            panic!("Expecting an identifier after the `fn` keyword.")
+            err!(self.curr().file_name, self.curr().line, self.curr().column, "Expecting an identifier after the `fn` keyword.");
+            self.set_end();
+            exit(100);
         }
     }
 
     fn parse_fn_lower(&mut self, identifier: String) -> ASTNode {
-        if self.curr() == Token::Sign(SignType::Paren(Direction::Open)) {
+        if self.curr().value == TokenValue::Sign(SignType::Paren(Direction::Open)) {
             let args_list = self.parse_fn_args_list();
 
             self.expect_token(
-                Token::Sign(SignType::Arrow),
+                TokenValue::Sign(SignType::Arrow),
                 "Expected an arrow (->) after the arguments.",
             );
 
-            let data_type = if self.curr() == Token::Sign(SignType::CurlyBrace(Direction::Open)) {
+            let data_type = if self.curr().value == TokenValue::Sign(SignType::CurlyBrace(Direction::Open)) {
                 DataType::Primitive(PrimitiveDataType::Null)
             } else {
                 self.parse_data_type()
             };
 
             self.expect_token(
-                Token::Sign(SignType::CurlyBrace(Direction::Open)),
+                TokenValue::Sign(SignType::CurlyBrace(Direction::Open)),
                 "Expected a code block.",
             );
 
@@ -505,16 +545,18 @@ impl Parser {
 
             ASTNode::FunctionDeclaration(identifier, args_list, Box::new(body), data_type)
         } else {
-            panic!("Expected an opening parentheses.")
+            err!(self.curr().file_name, self.curr().line, self.curr().column, "Expected an opening paren.");
+            self.set_end();
+            ASTNode::InternalStop
         }
     }
 
     fn parse_fn_args_list(&mut self) -> IndexMap<String, DataType> {
         self.go(); // paren
         let mut args_map: IndexMap<String, DataType> = IndexMap::new();
-        while self.curr() != Token::Sign(SignType::Paren(Direction::Close)) {
+        while self.curr().value != TokenValue::Sign(SignType::Paren(Direction::Close)) {
             let (arg_name, data_type) = self.parse_fn_arg();
-            if self.curr() == Token::Sign(SignType::Comma) {
+            if self.curr().value == TokenValue::Sign(SignType::Comma) {
                 self.go();
             }
             args_map.insert(arg_name, data_type);
@@ -526,33 +568,37 @@ impl Parser {
     fn parse_fn_arg(&mut self) -> (String, DataType) {
         let identifier_token = self.go();
         // dbg!(identifier_token.clone());
-        if let Token::Identifier(identifier) = identifier_token {
-            if self.curr() == Token::Sign(SignType::Colon) {
+        if let TokenValue::Identifier(identifier) = identifier_token.value {
+            if self.curr().value == TokenValue::Sign(SignType::Colon) {
                 self.go(); // colon
 
                 let data_type = self.parse_data_type();
                 
                 (identifier, data_type)
             } else {
-                panic!("Expecting a colon (:) after the argument name.")
+                err!(self.curr().file_name, self.curr().line, self.curr().column, "Expecting a colon after the argument name.");
+                self.set_end();
+                ("UNKNOWN".to_string(), DataType::InternalInfer)
             }
         } else {
-            panic!("Expecting an identifier in the arguments list.")
+            err!(self.curr().file_name, self.curr().line, self.curr().column, "Expecting an identifier in the arguments list.");
+            self.set_end();
+            ("UNKNOWN".to_string(), DataType::InternalInfer)
         }
     }
 
-    fn expect_token(&mut self, token: Token, reason: &str) {
+    fn expect_token(&mut self, token: TokenValue, reason: &str) {
         let tk = self.go();
         // dbg!("Just removed {}", tk.clone());
-        if token != tk {
-            panic!("{}", reason)
+        if token != tk.value {
+            err!(tk.file_name, tk.line, tk.column, "{}", reason)
         }
     }
 
     fn parse_code_block(&mut self) -> ASTNode {
         let mut nodes: Vec<ASTNode> = Vec::new();
 
-        while self.curr() != Token::Sign(SignType::CurlyBrace(Direction::Close)) && !self.is_end() {
+        while self.curr().value != TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) && !self.is_end() {
             nodes.push(self.parse_expressions());
         }
         self.go();
@@ -564,7 +610,7 @@ impl Parser {
         let left = self.parse_primary_expressions().unwrap_or(ASTNode::Expression(ExpressionType::Null));
 
 
-        if self.curr() == Token::Sign(SignType::Paren(Direction::Open)) {
+        if self.curr().value == TokenValue::Sign(SignType::Paren(Direction::Open)) {
             // self.go();
             // self.go();
 
@@ -578,11 +624,11 @@ impl Parser {
 
     fn parse_fn_call_arg_list(&mut self) -> Vec<ASTNode> {
         self.expect_token(
-            Token::Sign(SignType::Paren(Direction::Open)),
+            TokenValue::Sign(SignType::Paren(Direction::Open)),
             "Expected an opening paren.",
         );
 
-        if self.curr() == Token::Sign(SignType::Paren(Direction::Close)) {
+        if self.curr().value == TokenValue::Sign(SignType::Paren(Direction::Close)) {
             self.go();
             return Vec::new()
         }
@@ -590,7 +636,7 @@ impl Parser {
         let mut list: Vec<ASTNode> = vec![self.parse_expressions()];
         let mut tk = self.go();
 
-        while tk == Token::Sign(SignType::Comma) && !self.is_end() {
+        while tk.value == TokenValue::Sign(SignType::Comma) && !self.is_end() {
             list.push(self.parse_expressions());
             tk = self.go();
             dbg!(&tk);
@@ -611,7 +657,7 @@ impl Parser {
         let arg_type = self.parse_data_type();
 
         self.expect_token(
-            Token::Sign(SignType::Arrow),
+            TokenValue::Sign(SignType::Arrow),
             "Expected an arrow, then a data-type",
         );
         
@@ -622,7 +668,7 @@ impl Parser {
         args.insert(String::from("it"), arg_type);
 
         self.expect_token(
-            Token::Sign(SignType::CurlyBrace(Direction::Open)),
+            TokenValue::Sign(SignType::CurlyBrace(Direction::Open)),
             "Expected a code block.",
         );
 
@@ -637,10 +683,10 @@ impl Parser {
 
         // dbg!(token.clone());
 
-        while token == Token::Sign(SignType::DoubleArrow) {
+        while token.value == TokenValue::Sign(SignType::DoubleArrow) {
             let operator = self.curr();
             // dbg!(operator.clone());
-            if operator != Token::Sign(SignType::DoubleArrow) {
+            if operator.value != TokenValue::Sign(SignType::DoubleArrow) {
                 break;
             }
             self.go();
@@ -711,7 +757,7 @@ impl Parser {
         // dbg!(self.peek(), self.curr());
 
         //
-        if self.curr() == Token::Keyword(KeywordType::Else) {
+        if self.curr().value == TokenValue::Keyword(KeywordType::Else) {
             self.go(); // else;
             else_block = Some(Box::new(self.parse_code_block()));
         }
@@ -734,7 +780,7 @@ impl Parser {
         let mut ifs: Vec<IfStatement> = Vec::new();
         let mut else_block: Option<Box<ASTNode>> = None;
 
-        while self.curr() != Token::Sign(SignType::CurlyBrace(Direction::Close)) && !self.is_end() {
+        while self.curr().value != TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) && !self.is_end() {
             if let ASTNode::IfStatement(if_st) = self.parse_if_declaration() {
                 ifs.push(if_st);
                 // self.expect_token(Token::Sign(SignType::Semicolon), "Expected a semicolon");
@@ -744,7 +790,7 @@ impl Parser {
         }
         self.go();
 
-        if self.curr() == Token::Keyword(KeywordType::Else) {
+        if self.curr().value == TokenValue::Keyword(KeywordType::Else) {
             self.go(); // `else`
             else_block = Some(Box::new(self.parse_code_block()));
         }
@@ -757,7 +803,7 @@ impl Parser {
 
     fn parse_use(&mut self) -> ASTNode {
         self.go(); // `use`
-        if self.curr() == Token::Keyword(KeywordType::Native) {
+        if self.curr().value == TokenValue::Keyword(KeywordType::Native) {
             self.parse_use_native()
         } else {
             self.parse_use_module()
@@ -766,23 +812,25 @@ impl Parser {
 
     fn parse_use_module(&mut self) -> ASTNode {
         let mut path = String::new();
+        let tk = self.go();
 
-        if let Token::Identifier(i) = self.go() {
+        if let TokenValue::Identifier(i) = tk.value {
             path.push_str(&i);
         } else {
-            panic!("Expected an identifier while parsing a module.");
+            err!(tk.file_name, tk.line, tk.column, "Expected an identifier while parsing a module.");
+            return ASTNode::InternalStop
         };
 
-        while self.curr() == Token::Sign(SignType::Colon) {
+        while self.curr().value == TokenValue::Sign(SignType::Colon) {
             self.go();
-            if let Token::Identifier(i) = self.curr() {
+            if let TokenValue::Identifier(i) = self.curr().value {
                 path.push(':');
                 path.push_str(&i);
                 self.go();
             }
         }
 
-        self.expect_token(Token::Sign(SignType::TildeArrow), "Expected a tilde-arrow (~>) to define the import symbol.");
+        self.expect_token(TokenValue::Sign(SignType::TildeArrow), "Expected a tilde-arrow (~>) to define the import symbol.");
 
         let module = Module::new(path.clone());
 
@@ -791,30 +839,36 @@ impl Parser {
         let mut parser = Parser::new(src, module, self.module_storage.clone(), self.root.clone(), mosa_fs::relative_from(path.clone()));
         parser.gen_ast();
 
-        if let Token::Identifier(symbol) = self.go() {
+        if let TokenValue::Identifier(symbol) = self.go().value {
             ASTNode::UseModule(path, symbol)
         } else {
-            panic!("Expected an identifier to define the imported symbol.");
+            err!(ft self.curr(), "Expected an identifier to define the imported symbol.");
+            self.set_end();
+            ASTNode::InternalStop
         }
     }
 
     fn parse_use_native(&mut self) -> ASTNode {
         self.go(); // `native`
 
-        if Token::Keyword(KeywordType::Fn) == self.go() {
-            if let Token::Identifier(identifier) = self.go() {
-                self.expect_token(Token::Sign(SignType::HashSign), &format!("Expected a `#` after `use native {}", &identifier));
+        if TokenValue::Keyword(KeywordType::Fn) == self.go().value {
+            if let TokenValue::Identifier(identifier) = self.go().value {
+                self.expect_token(TokenValue::Sign(SignType::HashSign), &format!("Expected a `#` after `use native {}", &identifier));
 
-                if let Token::String(from) = self.go() {
+                if let TokenValue::String(from) = self.go().value {
                     ASTNode::UseNative(UseNative {
                         name: identifier,
                         from,
                     })
                 } else {
-                    panic!("Expected a string to qualify the path")
+                    err!(ft self.last(), "Expected a string to qualify the path.");
+                    self.set_end();
+                    ASTNode::InternalStop
                 }
             } else {
-                panic!("Expected an identifier after `use native`")
+                err!(ft self.last(), "Expected an identifier after `use native`.");
+                self.set_end();
+                ASTNode::InternalStop
             }
         } else {
             unreachable!()
@@ -824,10 +878,12 @@ impl Parser {
     fn parse_binding_access(&mut self) -> ASTNode {
         self.go(); // `^`
 
-        if let Token::Identifier(identifier) = self.go() {
+        if let TokenValue::Identifier(identifier) = self.go().value {
             ASTNode::BindingAccess(identifier)
         } else {
-            panic!("Expected an identifier for binding access")
+            err!(ft self.last(), "Expected an identifier to access a binding.");
+            self.set_end();
+            ASTNode::InternalStop
         }
     }
     
@@ -848,64 +904,66 @@ impl Parser {
     fn parse_complex_type_access(&mut self, entry: &String) -> ASTNode {
         self.go(); // `->`
 
-        if let Token::Identifier(identifier) = self.go() {
+        if let TokenValue::Identifier(identifier) = self.go().value {
             ASTNode::ComplexTypeAccessor(entry.clone(), identifier)
         } else {
-            panic!("Expected an identifier after `->` to access from an enum or a layout `{}`", entry)
+            err!(ft self.last(), "Expected an identifier after `->` to access from an enum or a layout `{}`", entry);
+            self.set_end();
+            ASTNode::InternalStop
         }
     }
 
     fn parse_enum_declaration(&mut self) -> ASTNode {
         self.go(); // `enum`
 
-        if let Token::Identifier(identifier) = self.go() {
-            if self.go() != Token::Sign(SignType::CurlyBrace(Direction::Open)) {
-                panic!("Expected an opening curly brace (`{{`).")
+        if let TokenValue::Identifier(identifier) = self.go().value {
+            if self.go().value != TokenValue::Sign(SignType::CurlyBrace(Direction::Open)) {
+                err!(ft self.last(), "Expected an opening curly brace (`{{`).");
+                self.set_end();
+                return ASTNode::InternalStop
             }
 
             let entries = self.parse_enum_entries();
-
-            // if self.go() != Token::Sign(SignType::CurlyBrace(Direction::Close)) {
-            //     panic!("Expected a closing curly brace (`}}`).")
-            // }
 
             ASTNode::EnumDeclaration(
                 identifier,
                 entries
             )
         } else {
-            panic!("Expected enum identifier.")
+            err!(ft self.last(), "Expected enum identifier.");
+            self.set_end();
+            ASTNode::InternalStop
         }
     }
 
     fn parse_enum_entries(&mut self) -> Vec<String> {
         let mut res = vec![];
 
-        if let Token::Identifier(id) = self.go() {
+        if let TokenValue::Identifier(id) = self.go().value {
             res.push(id);
         }
 
 
         let mut tk = self.go();
 
-        if tk == Token::Sign(SignType::Comma) && self.curr() == Token::Sign(SignType::CurlyBrace(Direction::Close)) {
+        if tk.value == TokenValue::Sign(SignType::Comma) && self.curr().value == TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) {
             tk = self.go();
         }
 
-        while tk == Token::Sign(SignType::Comma) && self.curr() != Token::Sign(SignType::CurlyBrace(Direction::Close)) && !self.is_end() {
-            if let Token::Identifier(id) = self.go() {
+        while tk.value == TokenValue::Sign(SignType::Comma) && self.curr().value != TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) && !self.is_end() {
+            if let TokenValue::Identifier(id) = self.go().value {
                 res.push(id);
             }
             dbg!(&self.curr());
             tk = self.go();
-            if tk == Token::Sign(SignType::Comma) && self.curr() == Token::Sign(SignType::CurlyBrace(Direction::Close)) {
+            if tk.value == TokenValue::Sign(SignType::Comma) && self.curr().value == TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) {
                 tk = self.go();
             }
         }
 
         dbg!(&tk);
-        if tk != Token::Sign(SignType::CurlyBrace(Direction::Close)) {
-            panic!("Expected a closing curly brace (`}}`).")
+        if tk.value != TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) {
+            err!(ft tk, "Expected a closing curly brace (`}}`).");
         }
 
         res
@@ -916,14 +974,18 @@ impl Parser {
 
         let identifier: String;
 
-        if let Token::Identifier(ident) = self.go() {
+        if let TokenValue::Identifier(ident) = self.go().value {
             identifier = ident;
         } else {
-            panic!("Expected an identifier after `layout`")
+            err!(ft self.last(), "Expected an identifier after `layout`");
+            self.set_end();
+            return ASTNode::InternalStop
         }
 
-        if self.go() != Token::Sign(SignType::CurlyBrace(Direction::Open)) {
-            panic!("Expected an opening curly brace (`{{`).")
+        if self.go().value != TokenValue::Sign(SignType::CurlyBrace(Direction::Open)) {
+            err!(ft self.last(), "Expected an opening curly brace (`{{`).");
+            self.set_end();
+            return ASTNode::InternalStop
         }
 
         let entries = self.parse_layout_entries();
@@ -947,7 +1009,7 @@ impl Parser {
     }
 
     fn try_parse_internal_mix(&mut self, internal_ident: String) -> Option<ASTNode> {
-        if self.curr() == Token::Keyword(KeywordType::Mix) && self.peek() == Token::Sign(SignType::At) {
+        if self.curr().value == TokenValue::Keyword(KeywordType::Mix) && self.peek().value == TokenValue::Sign(SignType::At) {
             Some(self.parse_mix(Some(internal_ident)))
         } else {
             None
@@ -957,52 +1019,57 @@ impl Parser {
     fn parse_layout_entries(&mut self) -> HashMap<String, FieldParserDescription> {
         let mut res = HashMap::new();
 
-        if let Token::Identifier(id) = self.curr() {
+        if let TokenValue::Identifier(id) = self.curr().value {
             res.insert(id, self.parse_layout_single_entry().unwrap().1);
         }
 
         let mut tk = self.go();
 
-        if self.curr() == Token::Sign(SignType::CurlyBrace(Direction::Close)) {
+        if self.curr().value == TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) {
             tk = self.go();
         }
 
-        while tk == Token::Sign(SignType::Comma) && self.curr() != Token::Sign(SignType::CurlyBrace(Direction::Close)) && !self.is_end() {
-            if let Token::Identifier(id) = self.curr() {
+        while tk.value == TokenValue::Sign(SignType::Comma) && self.curr().value != TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) && !self.is_end() {
+            if let TokenValue::Identifier(id) = self.curr().value {
                 res.insert(id, self.parse_layout_single_entry().unwrap().1);
             }
             // if self.curr() == Token::Sign(SignType::Comma) {
             //     self.go();
             // }
             tk = self.go();
-            if tk == Token::Sign(SignType::Comma) && self.curr() == Token::Sign(SignType::CurlyBrace(Direction::Close)) {
+            if tk.value == TokenValue::Sign(SignType::Comma) && self.curr().value == TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) {
                 tk = self.go();
             }
             dbg!(&tk);
         }
 
-        if tk != Token::Sign(SignType::CurlyBrace(Direction::Close)) {
-            panic!("Expected a closing curly brace (`}}`).")
+        if tk.value != TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) {
+            err!(ft tk, "Expected a closing curly brace (`}}`).");
+            self.set_end();
         }
 
         res
     }
 
     fn parse_layout_single_entry(&mut self) -> Option<(String, FieldParserDescription)> {
-        if let Token::Identifier(id) = self.go() {
-            if self.go() != Token::Sign(SignType::Colon) {
-                panic!("Expected a colon after `{}`", id)
+        if let TokenValue::Identifier(id) = self.go().value {
+            if self.go().value != TokenValue::Sign(SignType::Colon) {
+                err!(ft self.last(), "Expected a colon after `{}`", id);
+                self.set_end();
+                return None
             }
 
             let type_id: String;
 
-            if let Token::Identifier(r#type) = self.go() {
+            if let TokenValue::Identifier(r#type) = self.go().value {
                 type_id = r#type;
             } else {
-                panic!("Expected a type identifier after `{}:`", id);
+                err!(ft self.last(), "Expected a type identifier after `{}:`", id);
+                self.set_end();
+                return None
             }
 
-            let maybe_default_type = (self.curr() == Token::Operator(OperatorType::Equal)).then(|| {
+            let maybe_default_type = (self.curr().value == TokenValue::Operator(OperatorType::Equal)).then(|| {
                 self.go(); // '='
 
                 Box::new(self.parse_expressions())
@@ -1033,38 +1100,40 @@ impl Parser {
     fn parse_layout_creation_entries(&mut self) -> HashMap<String, Box<ASTNode>> {
         let mut res = HashMap::new();
 
-        if let Token::Identifier(id) = self.curr() {
+        if let TokenValue::Identifier(id) = self.curr().value {
             res.insert(id, self.parse_layout_creation_single_entry().unwrap().1);
         }
 
         let mut tk = self.go();
 
-        if self.curr() == Token::Sign(SignType::CurlyBrace(Direction::Close)) {
+        if self.curr().value == TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) {
             tk = self.go();
         }
 
-        while tk == Token::Sign(SignType::Comma) && self.curr() != Token::Sign(SignType::CurlyBrace(Direction::Close)) && !self.is_end() {
-            if let Token::Identifier(id) = self.curr() {
+        while tk.value == TokenValue::Sign(SignType::Comma) && self.curr().value != TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) && !self.is_end() {
+            if let TokenValue::Identifier(id) = self.curr().value {
                 res.insert(id, self.parse_layout_creation_single_entry().unwrap().1);
             }
             tk = self.go();
-            if tk == Token::Sign(SignType::Comma) && self.curr() == Token::Sign(SignType::CurlyBrace(Direction::Close)) {
+            if tk.value == TokenValue::Sign(SignType::Comma) && self.curr().value == TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) {
                 tk = self.go();
             }
             dbg!(&tk);
         }
 
-        if tk != Token::Sign(SignType::CurlyBrace(Direction::Close)) {
-            panic!("Expected a closing curly brace (`}}`).")
+        if tk.value != TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) {
+            err!(ft tk, "Expected a closing curly brace (`}}`).")
         }
 
         res
     }
 
     fn parse_layout_creation_single_entry(&mut self) -> Option<(String, Box<ASTNode>)> {
-        if let Token::Identifier(id) = self.go() {
-            if self.go() != Token::Operator(OperatorType::Equal) {
-                panic!("Expected an equals sign after `{}`", id)
+        if let TokenValue::Identifier(id) = self.go().value {
+            if self.go().value != TokenValue::Operator(OperatorType::Equal) {
+                err!(ft self.last(), "Expected an equals sign after `{}`", id);
+                self.set_end();
+                return None
             }
 
             // self.go(); // '='
@@ -1083,25 +1152,28 @@ impl Parser {
         } else if let ASTNode::LayoutFieldAccess(id, prop) = node {
             AssignmentProperty::LayoutField(id.clone(), prop.clone())
         } else {
-            panic!("Cannot make the expression into assignment-prop.")
+            err!("NO TRACE", 0, 0, "Cannot make the expression into assignment-prop.");
+            AssignmentProperty::Variable("INTERNAL".to_string())
         }
     }
 
     fn parse_layout_property_access(&mut self, id: &String) -> ASTNode {
         self.go(); // `.`
 
-        if let Token::Identifier(field) = self.go() {
+        if let TokenValue::Identifier(field) = self.go().value {
             ASTNode::LayoutFieldAccess(
                 id.clone(),
                 field
             )
         } else {
-            panic!("Expected a field name to access from `{}`.", id)
+            err!(ft self.last(), "Expected a field name to access from `{}`.", id);
+            self.set_end();
+            ASTNode::InternalStop
         }
     }
     
     fn parse_data_type(&mut self) -> DataType {
-        if let Token::Identifier(ident) = self.go() {
+        if let TokenValue::Identifier(ident) = self.go().value {
             if ident == "nul" {
                 let inner = self.parse_data_type();
                 
@@ -1112,7 +1184,9 @@ impl Parser {
                 DataType::from_str(ident)
             }
         } else {
-            panic!("Expected an identifier or `nul` for a data type.")
+            err!(ft self.last(), "Expected an identifier or `nul` for a data type.");
+            self.set_end();
+            DataType::Complex(ComplexDataType::Indefinite)
         }
     }
 
@@ -1124,25 +1198,31 @@ impl Parser {
             identifier = i;
             self.go(); // @
         } else {
-            if let Token::Identifier(id) = self.go() {
+            if let TokenValue::Identifier(id) = self.go().value {
                 identifier = id;
             } else {
-                panic!("Expected an identifier marking the layout name.")
+                err!(ft self.last(), "Expected an identifier marking the layout name.");
+                self.set_end();
+                return ASTNode::InternalStop;
             }
         }
 
-        if self.go() != Token::Sign(SignType::CurlyBrace(Direction::Open)) {
-            panic!("Expected an opening curly braces.")
+        if self.go().value != TokenValue::Sign(SignType::CurlyBrace(Direction::Open)) {
+            err!(ft self.last(), "Expected an opening curly braces.");
+            self.set_end();
+            return ASTNode::InternalStop;
         }
 
         let mut functions: Vec<ParserFunctionData> = Vec::new();
 
-        while self.curr() != Token::Sign(SignType::CurlyBrace(Direction::Close)) {
+        while self.curr().value != TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) {
             functions.push(self.parse_mix_function(Some(&identifier)));
         }
 
-        if self.go() != Token::Sign(SignType::CurlyBrace(Direction::Close)) {
-            panic!("Expected a closing curly braces.")
+        if self.go().value != TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) {
+            err!(ft self.last(), "Expected a closing curly braces.");
+            self.set_end();
+            return ASTNode::InternalStop;
         }
 
         ASTNode::MixStatement(identifier, functions)
@@ -1151,7 +1231,7 @@ impl Parser {
     fn parse_mix_function(&mut self, identifier: Option<&String>) -> ParserFunctionData {
         dbg!(&&&&&&self.curr());
 
-        let is_tied = self.curr() == Token::Keyword(KeywordType::Tied);
+        let is_tied = self.curr().value == TokenValue::Keyword(KeywordType::Tied);
 
         if is_tied {
             dbg!(self.go());
@@ -1185,7 +1265,7 @@ impl Parser {
     fn parse_exp(&mut self) -> ASTNode {
         self.go();
 
-        if self.curr() == Token::Keyword(KeywordType::Fn) {
+        if self.curr().value == TokenValue::Keyword(KeywordType::Fn) {
             let fun = self.parse_fn_declaration();
 
             let fd = if let ASTNode::FunctionDeclaration(name, args, body, return_type) = fun.clone() {
@@ -1207,7 +1287,7 @@ impl Parser {
             );
 
             fun
-        } else if self.curr() == Token::Keyword(KeywordType::Layout) {
+        } else if self.curr().value == TokenValue::Keyword(KeywordType::Layout) {
             let layout = self.parse_layout_declaration();
 
             if let ASTNode::LayoutDeclaration(ld) = layout.clone() {
@@ -1229,10 +1309,12 @@ impl Parser {
             } else {
                 unreachable!()
             }
-        } else if self.curr() == Token::Keyword(KeywordType::Enum) {
+        } else if self.curr().value == TokenValue::Keyword(KeywordType::Enum) {
             unreachable!()
         } else {
-            panic!("Now, exports are only supported for functions.")
+            err!(ft self.curr(), "Now, exports are only supported for functions.");
+            self.set_end();
+            ASTNode::InternalStop
         }
     }
 }

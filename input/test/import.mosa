@@ -3,8 +3,6 @@
 //        "hi"
 //    }
 //}
-use other~>x;
-
 exp fn hi() -> str {
     "hi"
 }
@@ -16,5 +14,3 @@ exp layout Hi {
         self.v * 2
     }
 }
-
-x()

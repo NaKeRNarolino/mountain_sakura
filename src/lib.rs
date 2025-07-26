@@ -5,3 +5,4 @@ pub mod parser;
 pub mod modules;
 pub mod mosa_fs;
 pub mod jni;
+pub mod logging;

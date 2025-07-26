@@ -4,8 +4,10 @@ use native fn printLn#"mosa-native~>printLn";
 use test:import~>hi;
 use test:import~>Hi;
 
-let x = Hi {
-    v = 7.5
-};
+use test:other~>quadruple;
 
-x.double()
+
+//quadruple(Hi { v = 7.5 })
+
+//immut let x: num;
+exp let X { }

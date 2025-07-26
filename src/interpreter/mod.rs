@@ -135,7 +135,8 @@ impl Interpreter {
             },
             ASTNode::InternalMulti(_) => unreachable!(),
             ASTNode::UseModule(path, symbol) => self.eval_module(path.clone(), symbol.clone(), scope.clone()),
-            ASTNode::Lambda(args, body, return_type) => self.create_lambda(args.clone(), body.clone(), return_type.clone(), scope.clone())
+            ASTNode::Lambda(args, body, return_type) => self.create_lambda(args.clone(), body.clone(), return_type.clone(), scope.clone()),
+            ASTNode::InternalStop => unreachable!()
         }
     }
 
@@ -695,9 +696,9 @@ impl Interpreter {
 
         if !module.has_cache() {
             let unmodulated_fns = module.unmodulated_exported_functions();
-            
+
             let unmodulated_lays = module.unmodulated_exported_layouts();
-            
+
             for (k, v) in unmodulated_fns {
                 module.push(k.clone(), ModuleExport::Function(
                     FunctionData {
@@ -711,7 +712,7 @@ impl Interpreter {
                     }
                 ))
             }
-            
+
             let interpreter = Interpreter::new(
                 ASTNode::Program(module.ast()),
                 self.module_storage.clone()
@@ -721,7 +722,7 @@ impl Interpreter {
 
             for (k, v) in unmodulated_lays {
                 let r = module.scope().read().unwrap().get_layout_declaration(&k);
-                
+
                 module.push(k.clone(), ModuleExport::Layout(
                     r.unwrap().clone()
                 ))

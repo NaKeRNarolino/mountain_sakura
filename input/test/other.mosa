@@ -1,3 +1,5 @@
-exp fn x() -> num {
-    10
+use import~>Hi;
+
+exp fn quadruple(h: Hi) -> num {
+    2 * h.double()
 }
