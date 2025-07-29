@@ -10,6 +10,10 @@ fn x2(n: num) -> num {
     n * 2
 }
 
-let ex = (quadruple)(Hi { v = 7 });
-ex.v
+quadruple(Hi { v = 7 }).v
+
+//let x = Hi { v = 7 };
+
+//x.double()
+
 //x2(4)

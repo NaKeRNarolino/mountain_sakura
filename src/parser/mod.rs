@@ -52,7 +52,7 @@ impl Parser {
     ) -> Self {
         let tokens = tokenize(module.name(), source);
 
-        dbg!(&tokens);
+        // dbg!(&tokens);
 
         Self {
             tokens,
@@ -132,12 +132,14 @@ impl Parser {
         self.module.set_ast(body.clone());
         self.module_storage.push((*self.module).clone());
 
+
+        dbg!(&body);
         ASTNode::Program(body)
     }
 
     fn parse_expressions(&mut self) -> ASTNode {
-        dbg!(&&&self.curr());
-        let expr = match self.curr().value {
+        // dbg!(&&&self.curr());
+        match self.curr().value {
             TokenValue::Keyword(keyword) => match keyword {
                 KeywordType::Let => self.parse_variable_declaration(),
                 KeywordType::Const => self.parse_variable_declaration(),
@@ -175,23 +177,8 @@ impl Parser {
                     self.parse_add_expressions()
                 }
             }
-            // TokenValue::Sign(sign_type) => {
-            //     if sign_type == SignType::Paren(Direction::Open) {
-            //         self.parse_atom()
-            //     } else {
-            //         self.parse_start_expr()
-            //     }
-            // }
             _ => self.parse_start_expr(),
-        };
-        expr
-
-        // if self.curr().value == TokenValue::Sign(SignType::Paren(Direction::Open)) {
-        //     self.go();
-            // self.parse_function_call(expr)
-        // } else {
-        //     expr
-        // }
+        }
     }
 
     fn parse_atom(&mut self) -> ASTNode {
@@ -251,8 +238,6 @@ impl Parser {
                     self.parse_complex_type_access(&v)
                 } else if self.curr().value == TokenValue::Sign(SignType::CurlyBrace(Direction::Open)) {
                     self.parse_layout_creation(&v)
-                } else if self.curr().value == TokenValue::Sign(SignType::Dot) {
-                    self.parse_layout_property_access(&v)
                 } else {
                     ASTNode::Identifier(v.clone())
                 }
@@ -435,7 +420,7 @@ impl Parser {
     }
 
     fn parse_comparison_expressions(&mut self) -> ASTNode {
-        let mut left = self.parse_call();
+        let mut left = self.parse_layout_property_access();
         let token = self.curr();
 
         while token.value == TokenValue::Operator(OperatorType::Bigger)
@@ -462,7 +447,7 @@ impl Parser {
                 },
                 _ => unreachable!(),
             };
-            let right = self.parse_call();
+            let right = self.parse_layout_property_access();
 
             left = ASTNode::Expression(ExpressionType::Binary(Box::new(BinaryExpression {
                 left: Box::new(left),
@@ -674,7 +659,7 @@ impl Parser {
     fn parse_call(&mut self) -> ASTNode {
         let mut expr = self.parse_atom();
 
-        dbg!(&*&self.curr());
+        // dbg!(&*&self.curr());
 
         if self.curr().value == TokenValue::Sign(SignType::Paren(Direction::Open)) && expr != ASTNode::Expression(ExpressionType::Null) {
             let args = self.parse_fn_call_arg_list();
@@ -740,70 +725,6 @@ impl Parser {
         ASTNode::FunctionDeclaration(identifier, args, Box::new(body), data_type)
     }
 
-    // fn parse_double_arrow_call(&mut self) -> ASTNode {
-    //     let mut left = self.parse_function_call();
-    //     let token = self.curr();
-    //
-        //dbg!(token.clone());
-        //
-        // while token.value == TokenValue::Sign(SignType::DoubleArrow) {
-        //     let operator = self.curr();
-            //dbg!(operator.clone());
-            // if operator.value != TokenValue::Sign(SignType::DoubleArrow) {
-            //     break;
-            // }
-            // self.go();
-            // let right = self.parse_function_call();
-
-            // left = ASTNode::Expression(ExpressionType::Binary(Box::new(BinaryExpression {
-            //     left: Box::new(left),
-            //     right: Box::new(right),
-            //     operand,
-            // })))
-
-            // if let ASTNode::Identifier(id) = right {
-            //     left = ASTNode::FunctionCall(Box::new(ASTNode::Identifier(id)), vec![left.clone()])
-            // }
-        // }
-        //
-        // left
-    // }
-
-    // fn parse_double_arrow_calls(body: Vec<ASTNode>) -> Vec<ASTNode> {
-    //     let mut new_nodes = vec![];
-    //     let mut hm: HashMap<usize, bool> = HashMap::new();
-    //
-    //     for (i, el) in body.iter().enumerate() {
-    //         if el == &ASTNode::Misc(MiscNodeType::DoubleArrow) {
-    //             let expr_idx = i - 1;
-    //             let fn_idx = i + 1;
-    //             hm.insert(
-    //                 expr_idx,
-    //                 true
-    //             );
-    //             hm.insert(
-    //                 fn_idx,
-    //                 true
-    //             );
-    //             let exp = body.get(expr_idx).expect("Expected an expression").clone();
-    //             let fn_v = body.get(fn_idx).expect("Expected a function name identifier").clone();
-    //
-    //             if let ASTNode::Identifier(name) = fn_v {
-    //                 new_nodes.pop();
-    //                 new_nodes.push(ASTNode::FunctionCall(
-    //                     name,
-    //                     vec![exp]
-    //                 ))
-    //             }
-    //         } else {
-    //             if !hm.get(&i).unwrap_or(&false) {
-    //                 new_nodes.push(el.clone())
-    //             }
-    //         }
-    //     }
-    //
-    //     new_nodes
-    // }
 
     fn parse_if_declaration(&mut self) -> ASTNode {
         self.go(); // if
@@ -1214,9 +1135,9 @@ impl Parser {
             //dbg!(&tk);
         }
 
-        if tk.value != TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) {
-            err!(ft tk, "Expected a closing curly brace (`}}`).")
-        }
+        // if tk.value != TokenValue::Sign(SignType::CurlyBrace(Direction::Close)) {
+        //     err!(ft tk, "Expected a closing curly brace (`}}`).")
+        // }
 
         res
     }
@@ -1255,16 +1176,28 @@ impl Parser {
         }
     }
 
-    fn parse_layout_property_access(&mut self, id: &String) -> ASTNode {
-        self.go(); // `.`
+    fn parse_layout_property_access(&mut self) -> ASTNode {
+        let mut expr = self.parse_call();
 
-        if let TokenValue::Identifier(field) = self.go().value {
-            ASTNode::LayoutFieldAccess(id.clone(), field)
+        if let TokenValue::Identifier(ident) = self.peek().value {
+            if self.curr().value == TokenValue::Sign(SignType::Dot) {
+                self.go(); self.go(); // one for the ident, one for the dot
+                expr = ASTNode::LayoutFieldAccess(Box::new(expr), ident);
+                
+                if self.curr().value == TokenValue::Sign(SignType::Paren(Direction::Open)) {
+                    let args = self.parse_fn_call_arg_list();
+                    expr = ASTNode::FunctionCall(Box::new(expr), args)
+                }
+            }
         } else {
-            err!(ft self.last(), "Expected a field name to access from `{}`.", id);
-            self.set_end();
-            ASTNode::InternalStop(self.last().line, self.last().file_name)
+            if self.curr().value == TokenValue::Sign(SignType::Dot) {
+                err!(ft self.last(), "Expected a field name to access from a layout.");
+                self.set_end();
+                expr = ASTNode::InternalStop(self.last().line, self.last().file_name)
+            }
         }
+
+        expr
     }
 
     fn parse_data_type(&mut self) -> DataType {

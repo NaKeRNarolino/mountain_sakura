@@ -21,7 +21,7 @@ pub fn error_stack_traced_parser(message: String, line: usize, column: usize, fi
         column.to_string().bright_yellow()
     );
     println!("{}", line_text);
-    println!("{}{}", " ".repeat(column - 1), "^".bright_yellow());
+    println!("{}{}", " ".repeat(column.max(1) - 1), "^".bright_yellow());
 }
 
 pub fn error_interpreter(message: String) {

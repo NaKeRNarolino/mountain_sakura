@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Div, Mul, Sub};
 use std::sync::{Arc, RwLock};
+use crate::parser::structs::ASTNode;
 
 #[derive(Debug, Clone)]
 pub enum RuntimeValue {
@@ -25,7 +26,7 @@ pub enum ComplexRuntimeValue {
 #[derive(Clone)]
 pub enum Reference {
     Function(FunctionData),
-    MethodLikeFunction(FunctionData, String, RuntimeScopeW),
+    MethodLikeFunction(FunctionData, Box<ASTNode>, RuntimeScopeW),
 }
 
 impl Debug for Reference {

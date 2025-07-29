@@ -344,16 +344,9 @@ impl Interpreter {
         if let AssignmentProperty::Variable(id) = identifier {
             scope.write().unwrap().assign_variable(id, v);
         } else if let AssignmentProperty::LayoutField(name, field) = identifier {
-            let variable = scope
-                .read()
-                .unwrap()
-                .read_variable(name.clone())
-                .expect(&format!(
-                    "Cannot find layout variable `{}` in this scope.",
-                    &name
-                ));
+            let variable = self.eval(&*name, scope.clone());
 
-            let data = self.cast_to_layout_data(variable.clone(), &name);
+            let data = self.cast_to_layout_data(variable);
 
             if !data.entries.read().unwrap().contains_key(&field) {
                 err!(
@@ -364,7 +357,7 @@ impl Interpreter {
                 exit(100)
             }
 
-            self.cast_to_layout_data(variable, &name)
+            data
                 .entries
                 .write()
                 .unwrap()
@@ -441,9 +434,7 @@ impl Interpreter {
                     // RuntimeValue::Null
                 }
                 RuntimeValue::Reference(Reference::MethodLikeFunction(v, name, scoped)) => {
-                    let var = scope.clone().read().unwrap().read_variable(name.clone());
-
-                    let mut arg = vec![ASTNode::Identifier(name)];
+                    let mut arg = vec![*name.clone()];
                     arg.append(&mut args.clone());
                     self.eval_fn_call_lower(v, arg, scoped.clone())
                 }
@@ -483,7 +474,7 @@ impl Interpreter {
 
         let r = self.eval(&ASTNode::CodeBlock(fn_data.body), new_scope);
 
-        dbg!(&r);
+        dbg!(&r, &fn_data.name);
 
         if !scope
             .read()
@@ -766,22 +757,15 @@ impl Interpreter {
 
     fn eval_layout_field_access(
         &self,
-        name: String,
+        name: Box<ASTNode>,
         field: String,
         scope: RuntimeScopeW,
     ) -> RuntimeValue {
-        let variable = scope
-            .read()
-            .unwrap()
-            .read_variable(name.clone())
-            .expect(&format!(
-                "Cannot find layout variable `{}` in this scope.",
-                &name
-            ));
+        let variable = self.eval(&*name, scope.clone());
 
         let ty = scope.read().unwrap().get_value_type(&variable).to_string();
 
-        let data = self.cast_to_layout_data(variable, &name);
+        let data = self.cast_to_layout_data(variable);
 
         if let Some(decl) = scope.clone().read().unwrap().get_layout_declaration(&ty) {
             if let Some(fun) = decl.mixed.read().unwrap().get(&field) {
@@ -820,16 +804,17 @@ impl Interpreter {
         }
     }
 
-    fn cast_to_layout_data(&self, variable: RuntimeValue, name: &String) -> Arc<LayoutData> {
+    fn cast_to_layout_data(&self, variable: RuntimeValue) -> Arc<LayoutData> {
+        dbg!(&variable);
         if let RuntimeValue::Complex(complex) = variable {
             if let ComplexRuntimeValue::Layout(data) = complex {
                 data
             } else {
-                err!(intrp "Variable `{}` is not a layout.", &name);
+                err!(intrp "The expression is not a layout.");
                 exit(100)
             }
         } else {
-            err!(intrp "Variable `{}` is not of a complex type.", &name);
+            err!(intrp "The expression is not of a complex type.");
             exit(100)
         }
     }

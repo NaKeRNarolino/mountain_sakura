@@ -28,7 +28,7 @@ pub enum ASTNode {
     Typeof(Box<ASTNode>),
     LayoutDeclaration(LayoutDeclaration),
     LayoutCreation(LayoutCreation),
-    LayoutFieldAccess(String, String),
+    LayoutFieldAccess(Box<ASTNode>, String),
     MixStatement(String, Vec<ParserFunctionData>),
     InternalMulti(Vec<ASTNode>),
     UseModule(String, String),
@@ -40,7 +40,7 @@ pub enum ASTNode {
 #[derive(Clone, PartialEq, Debug)]
 pub enum AssignmentProperty {
     Variable(String),
-    LayoutField(String, String),
+    LayoutField(Box<ASTNode>, String),
 }
 
 #[derive(Clone, PartialEq, Debug)]
