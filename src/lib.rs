@@ -6,3 +6,4 @@ pub mod logging;
 pub mod modules;
 pub mod mosa_fs;
 pub mod parser;
+pub mod wrapper;

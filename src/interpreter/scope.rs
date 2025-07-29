@@ -1,6 +1,6 @@
 use crate::global::{ComplexDataType, ReferenceType};
 use crate::global::{DataType, NumType, PrimitiveDataType};
-use crate::interpreter::structs::{ComplexRuntimeValue, Reference, RuntimeValue};
+use crate::interpreter::structs::{ComplexRuntimeValue, MoSaNativeFunction, Reference, RuntimeValue};
 use crate::modules::ModuleExport;
 use crate::parser::structs::{
     ASTNode, FieldParserDescription, LayoutDeclaration, ParserFunctionData,
@@ -52,7 +52,7 @@ pub struct RuntimeScope {
     parent: Option<Arc<RwLock<RuntimeScope>>>,
     variables: HashMap<String, VariableData>,
     functions: HashMap<String, FunctionData>,
-    native_functions: HashMap<String, Arc<dyn Fn(Vec<RuntimeValue>) -> RuntimeValue>>,
+    native_functions: HashMap<String, MoSaNativeFunction>,
     defined_native_functions: HashMap<String, String>,
     bindings: HashMap<String, RuntimeValue>,
     enums: HashMap<String, EnumDefinition>,

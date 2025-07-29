@@ -6,6 +6,8 @@ use std::ops::{Add, Div, Mul, Sub};
 use std::sync::{Arc, RwLock};
 use crate::parser::structs::ASTNode;
 
+pub type MoSaNativeFunction = Arc<dyn Fn(Vec<RuntimeValue>) -> RuntimeValue>;
+
 #[derive(Debug, Clone)]
 pub enum RuntimeValue {
     Number(f64),
