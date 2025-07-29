@@ -2,12 +2,12 @@ use std::fs;
 use std::path::PathBuf;
 
 pub fn read_from_path(path: String, root: String, relative_root: String) -> String {
-    dbg!(format!(
-        "{}{}{}.mosa",
-        root,
-        relative_root,
-        path.replace(":", "/")
-    ));
+    // dbg!(format!(
+    //     "{}{}{}.mosa",
+    //     root,
+    //     relative_root,
+    //     path.replace(":", "/")
+    // ));
     fs::read_to_string(format!(
         "{}{}{}.mosa",
         root,

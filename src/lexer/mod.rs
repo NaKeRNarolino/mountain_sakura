@@ -67,7 +67,7 @@ pub fn tokenize(file_name: String, raw_input: String) -> VecDeque<Token> {
             prev_char = char;
 
             if making_string {
-                dbg!(&char);
+                // dbg!(&char);
                 string.push(char);
                 continue;
             }
@@ -301,7 +301,7 @@ pub fn tokenize(file_name: String, raw_input: String) -> VecDeque<Token> {
                                 number_str.push('0');
                             }
 
-                            dbg!(&number_str);
+                            // dbg!(&number_str);
 
                             tokens.push(Token {
                                 value: TokenValue::Number(number_str.parse::<f64>().unwrap()),

@@ -6,10 +6,10 @@ use test:import~>Hi;
 
 use test:other~>quadruple;
 
+fn x2(n: num) -> num {
+    n * 2
+}
 
-//quadruple(Hi { v = 7.5 })
-
-//immut let x: num;
-let y: nul num = null;
-y = 10;
-y
+let ex = (quadruple)(Hi { v = 7 });
+ex.v
+//x2(4)

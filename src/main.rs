@@ -40,7 +40,7 @@ fn main() {
     let ast = parser.gen_ast();
     let interpreter = Interpreter::new(ast.clone(), module_storage);
 
-    dbg!(ast);
+    dbg!(&ast);
 
     let mut scope = RuntimeScope::new(None);
 

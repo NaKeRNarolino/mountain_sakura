@@ -39,6 +39,8 @@ impl Interpreter {
 
         let scope = Arc::new(RwLock::new(scope));
 
+        dbg!(&self.program);
+
         for node in &self.program {
             last_evaluated = self.eval(node, scope.clone());
         }
@@ -106,6 +108,7 @@ impl Interpreter {
             }
             ASTNode::CodeBlock(code) => self.eval_code_block(code.clone(), scope),
             ASTNode::FunctionCall(identifier, args) => {
+                dbg!("CALL");
                 self.eval_fn_call(identifier.clone(), args.clone(), scope)
             }
             ASTNode::IfStatement(stmt) => self.eval_if_statement(stmt.clone(), scope),
@@ -154,7 +157,8 @@ impl Interpreter {
             ASTNode::InternalStop(line, file_name) => {
                 Self::error(line, file_name);
                 exit(100);
-            }
+            },
+            &ASTNode::Indexing(_, _) => unreachable!()
         }
     }
 
@@ -424,11 +428,17 @@ impl Interpreter {
                 .get_native_function_from_ident(extracted_name)
                 .expect("Cannot find native fn"))(args_ev)
         } else {
+            dbg!(&identifier);
             let ev = self.eval(&*identifier, scope.clone());
+
+            dbg!("CALLED");
+
+            dbg!(&ev);
 
             match ev {
                 RuntimeValue::Reference(Reference::Function(v)) => {
                     self.eval_fn_call_lower(v, args, scope.clone())
+                    // RuntimeValue::Null
                 }
                 RuntimeValue::Reference(Reference::MethodLikeFunction(v, name, scoped)) => {
                     let var = scope.clone().read().unwrap().read_variable(name.clone());
@@ -451,13 +461,14 @@ impl Interpreter {
         args: Vec<ASTNode>,
         scope: RuntimeScopeW,
     ) -> RuntimeValue {
-        let mut new_scope = RuntimeScope::arc_rwlock_new(Some(fn_data.scope));
+        let new_scope = RuntimeScope::arc_rwlock_new(Some(fn_data.scope));
 
         for (i, (arg, data_type)) in fn_data.args.iter().enumerate() {
-            // dbg!(arg, &args[i]);
+            dbg!(arg, &args[i]);
             let ev = self.eval(&args[i], scope.clone());
+            dbg!(&ev);
             let r#type = scope.read().unwrap().get_value_type(&ev);
-            if r#type != data_type.clone() {
+            if !r#type.matches(&data_type) {
                 err!(intrp
                     "Cannot pass value of type `{}` to function argument `{}` of type `{}`",
                     r#type, arg, data_type
@@ -470,7 +481,9 @@ impl Interpreter {
                 .declare_variable(arg.clone(), data_type.clone(), ev, true);
         }
 
-        let r = self.eval(&ASTNode::Program(fn_data.body), new_scope);
+        let r = self.eval(&ASTNode::CodeBlock(fn_data.body), new_scope);
+
+        dbg!(&r);
 
         if !scope
             .read()

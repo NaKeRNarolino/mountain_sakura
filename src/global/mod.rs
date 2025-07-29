@@ -15,14 +15,14 @@ pub enum ComplexDataType {
 }
 
 impl DataType {
-    pub fn from_str(string: String) -> Self {
+    pub fn from_str(string: String, generics: Vec<DataType>) -> Self {
         match string.as_str() {
             "num" => DataType::Primitive(PrimitiveDataType::Num(NumType::Dynamic)),
             "str" => DataType::Primitive(PrimitiveDataType::Str),
             "null" => DataType::Primitive(PrimitiveDataType::Null),
             "bool" => DataType::Primitive(PrimitiveDataType::Bool),
-            "iterable" => DataType::Primitive(PrimitiveDataType::Nullable(Box::new(
-                DataType::Primitive(PrimitiveDataType::Num(NumType::Dynamic)),
+            "iterable" => DataType::Primitive(PrimitiveDataType::Iterable(Box::new(
+                generics[0].clone(),
             ))),
             v => DataType::Complex(ComplexDataType::LayoutOrEnum(v.to_string())),
         }
@@ -43,7 +43,7 @@ impl Display for DataType {
         let str = match self {
             DataType::Primitive(primitive) => match primitive {
                 PrimitiveDataType::Num(_) => "num",
-                PrimitiveDataType::Iterable(_) => "iterable",
+                PrimitiveDataType::Iterable(g) => &format!("iterable[{}]", g.to_string()),
                 PrimitiveDataType::Str => "str",
                 PrimitiveDataType::Bool => "bool",
                 PrimitiveDataType::Nullable(v) => &format!("nul {}", (&*v).clone()),

@@ -2,7 +2,6 @@ use crate::global::DataType;
 use crate::interpreter::scope::{FnArgs, FunctionData, RuntimeScopeW};
 use indexmap::IndexMap;
 use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ASTNode {
@@ -34,6 +33,7 @@ pub enum ASTNode {
     InternalMulti(Vec<ASTNode>),
     UseModule(String, String),
     Lambda(IndexMap<String, DataType>, Box<ASTNode>, DataType),
+    Indexing(Box<ASTNode>, Box<ASTNode>),
     InternalStop(usize, String),
 }
 
