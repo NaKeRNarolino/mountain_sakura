@@ -12,7 +12,8 @@ pub mod parser;
 pub mod wrapper;
 
 fn main() {
-    let runner = MoSaRunner::new("./input/main.mosa".into())
+    let runner = MoSaRunner::new("./input/main.mosa")
+        .add_lib("std", "./lib/std")
         .add_bindings(
             vec![
                 |args: Vec<RuntimeValue>| -> RuntimeValue {

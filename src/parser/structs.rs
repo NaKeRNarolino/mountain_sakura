@@ -2,6 +2,7 @@ use crate::global::DataType;
 use crate::interpreter::scope::{FnArgs, FunctionData, RuntimeScopeW};
 use indexmap::IndexMap;
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ASTNode {
@@ -41,6 +42,12 @@ pub enum ASTNode {
 pub enum AssignmentProperty {
     Variable(String),
     LayoutField(Box<ASTNode>, String),
+}
+
+#[derive(Clone)]
+pub enum ModulePathMode {
+    Static(PathBuf),
+    Lib(String)
 }
 
 #[derive(Clone, PartialEq, Debug)]

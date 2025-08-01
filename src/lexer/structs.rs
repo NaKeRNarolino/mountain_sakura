@@ -45,6 +45,7 @@ pub enum KeywordType {
     Layout,
     Mix,
     Tied,
+    Repeat
 }
 
 pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
@@ -70,6 +71,7 @@ pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
         ("layout", KeywordType::Layout),
         ("mix", KeywordType::Mix),
         ("tied", KeywordType::Tied),
+        ("repeat", KeywordType::Repeat)
     ])
 }
 
@@ -131,6 +133,7 @@ pub enum SignType {
     Tilde,                 // ~
     TildeArrow,            // ~>
     DoubleColon,           // ::
+    DollarSign,            // $
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -151,6 +154,7 @@ pub fn simple_sign_types() -> HashMap<char, SignType> {
         ('#', SignType::HashSign),
         ('^', SignType::Caret),
         ('@', SignType::At),
+        ('$', SignType::DollarSign),
         ('~', SignType::Tilde),
     ])
 }

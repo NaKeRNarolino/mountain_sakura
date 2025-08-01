@@ -163,11 +163,8 @@ impl Interpreter {
     }
 
     fn error(line: &usize, file_name: &String) {
-        err!(
-            file_name,
-            *line,
-            1,
-            "There was a parsing error, the code cannot be ran."
+        err!(intrp
+            "There was a parsing error, the code cannot be ran.",
         )
     }
 

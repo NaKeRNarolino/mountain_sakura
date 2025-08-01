@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::PathBuf;
@@ -14,15 +15,17 @@ use crate::wrapper::MoSaBinding;
 pub struct MoSaRunner {
     entry: PathBuf,
     bindings: Vec<MoSaBinding>,
-    scope_operations: Vec<Arc<dyn Fn(RuntimeScopeW)>>
+    scope_operations: Vec<Arc<dyn Fn(RuntimeScopeW)>>,
+    libs: HashMap<String, PathBuf>
 }
 
 impl MoSaRunner {
-    pub fn new(entry: PathBuf) -> Self {
+    pub fn new(entry: impl Into<PathBuf>) -> Self {
         Self {
-            entry,
+            entry: entry.into(),
             bindings: vec![],
-            scope_operations: vec![]
+            scope_operations: vec![],
+            libs: HashMap::new()
         }
     }
 
@@ -36,6 +39,17 @@ impl MoSaRunner {
         }
     }
 
+    pub fn add_lib(&self, lib: impl Into<String>, path: impl Into<PathBuf>) -> Self {
+        let mut hm = self.libs.clone();
+
+        hm.insert(lib.into(), path.into());
+
+        Self {
+            libs: hm,
+            ..self.clone()
+        }
+    }
+
     pub fn run(&self) -> anyhow::Result<RuntimeValue> {
         let mut rs = RuntimeScope::new(None);
 
@@ -44,7 +58,7 @@ impl MoSaRunner {
         for binding in self.bindings.clone() {
             rs.add_native_function(binding.path, binding.binding)
         }
-        
+
         let read = fs::read_to_string(&self.entry)?;
 
         let mut root = self.entry.clone();
@@ -63,7 +77,7 @@ impl MoSaRunner {
 
         let module_storage = Arc::new(ModuleStorage::new());
 
-        let mut parser = Parser::new(read, module, module_storage.clone(), r, "".to_string());
+        let mut parser = Parser::new(read, module, module_storage.clone(), r, "".to_string(), self.libs.clone());
 
         let interpreter = Interpreter::new(parser.gen_ast(), module_storage.clone());
 
