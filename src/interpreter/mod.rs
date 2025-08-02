@@ -39,7 +39,7 @@ impl Interpreter {
 
         let scope = Arc::new(RwLock::new(scope));
 
-        dbg!(&self.program);
+        // dbg!(&self.program);
 
         for node in &self.program {
             last_evaluated = self.eval(node, scope.clone());
@@ -108,7 +108,7 @@ impl Interpreter {
             }
             ASTNode::CodeBlock(code) => self.eval_code_block(code.clone(), scope),
             ASTNode::FunctionCall(identifier, args) => {
-                dbg!("CALL");
+                // dbg!("CALL");
                 self.eval_fn_call(identifier.clone(), args.clone(), scope)
             }
             ASTNode::IfStatement(stmt) => self.eval_if_statement(stmt.clone(), scope),
@@ -418,12 +418,12 @@ impl Interpreter {
                 .get_native_function_from_ident(extracted_name)
                 .expect("Cannot find native fn"))(args_ev)
         } else {
-            dbg!(&identifier);
+            // dbg!(&identifier);
             let ev = self.eval(&*identifier, scope.clone());
 
-            dbg!("CALLED");
+            // dbg!("CALLED");
 
-            dbg!(&ev);
+            // dbg!(&ev);
 
             match ev {
                 RuntimeValue::Reference(Reference::Function(v)) => {
@@ -452,9 +452,9 @@ impl Interpreter {
         let new_scope = RuntimeScope::arc_rwlock_new(Some(fn_data.scope));
 
         for (i, (arg, data_type)) in fn_data.args.iter().enumerate() {
-            dbg!(arg, &args[i]);
+            // dbg!(arg, &args[i]);
             let ev = self.eval(&args[i], scope.clone());
-            dbg!(&ev);
+            // dbg!(&ev);
             let r#type = scope.read().unwrap().get_value_type(&ev);
             if !r#type.matches(&data_type) {
                 err!(intrp
@@ -471,7 +471,7 @@ impl Interpreter {
 
         let r = self.eval(&ASTNode::CodeBlock(fn_data.body), new_scope);
 
-        dbg!(&r, &fn_data.name);
+        // dbg!(&r, &fn_data.name);
 
         if !scope
             .read()
@@ -802,7 +802,7 @@ impl Interpreter {
     }
 
     fn cast_to_layout_data(&self, variable: RuntimeValue) -> Arc<LayoutData> {
-        dbg!(&variable);
+        // dbg!(&variable);
         if let RuntimeValue::Complex(complex) = variable {
             if let ComplexRuntimeValue::Layout(data) = complex {
                 data
@@ -822,6 +822,8 @@ impl Interpreter {
 
     fn eval_module(&self, path: String, symbol: String, scope: RuntimeScopeW) -> RuntimeValue {
         let module = self.module_storage.get(&path).unwrap();
+
+        module.scope.write().unwrap().preplace_native_functions(scope.read().unwrap().get_native_functions());
 
         if !module.has_cache() {
             let unmodulated_fns = module.unmodulated_exported_functions();

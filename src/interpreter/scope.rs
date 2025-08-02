@@ -396,4 +396,12 @@ impl RuntimeScope {
     pub fn import(&self, symbol: String, export: ModuleExport) {
         self.imports.write().unwrap().insert(symbol, export);
     }
+
+    pub fn preplace_native_functions(&mut self, natives: HashMap<String, MoSaNativeFunction>) {
+        self.native_functions = natives
+    }
+    
+    pub fn get_native_functions(&self) -> HashMap<String, MoSaNativeFunction> {
+        self.native_functions.clone()
+    }
 }

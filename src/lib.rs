@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::string::String;
@@ -16,7 +17,6 @@ use crate::parser::Parser;
 
 pub mod global;
 pub mod interpreter;
-pub mod jni;
 pub mod lexer;
 pub mod logging;
 pub mod modules;
@@ -79,7 +79,7 @@ pub extern "system" fn Java_dev_kofeychi_mosajni_MosaJniBinds_eval<'local>(mut e
     let module_storage = Arc::new(ModuleStorage::new());
     let module = Module::new("main".to_string());
 
-    let mut parser = Parser::new(file, module, module_storage.clone(), workdir.to_string(), "".to_string());
+    let mut parser = Parser::new(file, module, module_storage.clone(), workdir.to_string(), "".to_string(), HashMap::new());
     let ast = parser.gen_ast();
     let interpreter = Interpreter::new(ast.clone(), module_storage);
 
