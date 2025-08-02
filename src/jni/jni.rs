@@ -1,11 +1,14 @@
+use std::string::String;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use jni::{JNIEnv, JavaVM};
 use lazy_static::lazy_static;
-use crate::interpreter::structs::Reference;
 
 pub fn assign_global_jvm(jvm: JNIEnv) {
     GLOBAL.lock().unwrap().insert("PUBLIC".parse().unwrap(), jvm.get_java_vm().unwrap());
+}
+pub fn jvm() {
+    GLOBAL.lock().unwrap().get("PUBLIC").unwrap();
 }
 
 lazy_static! {

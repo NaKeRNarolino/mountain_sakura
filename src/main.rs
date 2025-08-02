@@ -17,6 +17,8 @@ pub mod parser;
 pub mod modules;
 pub mod mosa_fs;
 
+pub mod opts;
+
 fn get_input() -> String {
     let file = fs::read_to_string("./input/main.mosa").unwrap();
 

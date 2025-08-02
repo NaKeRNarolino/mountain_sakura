@@ -15,7 +15,7 @@ pub struct Callable {
 impl Callable {
     pub unsafe fn new(id: String,path: String, method: String, descriptor: String, modifier: Modifier) -> Callable {
         let mut callable = Callable{ classpath: path,method,descriptor, modifiers: modifier };
-        cache_add(id,callable.clone());
+        cache_hash(id,callable.clone());
         callable
     }
     pub fn call<'local>(self, mut jni: JNIEnv<'local>, args: &[JValue], obj: Option<JObject>) -> jni::errors::Result<JValueOwned<'local>> {
@@ -34,6 +34,12 @@ pub unsafe fn cache_add(id: String,cal: Callable) {
 }
 pub unsafe fn cache_get(cal: &String) {
     CALLABLE_CACHE.lock().unwrap().get(cal);
+}
+
+pub unsafe fn cache_hash(id: String,cal: Callable) {
+    if(!CALLABLE_CACHE.lock().unwrap().contains_key(&id)){
+        cache_add(id,cal)
+    }
 }
 lazy_static! {
     static ref CALLABLE_CACHE: Mutex<HashMap<String,Callable>> = Mutex::new(HashMap::new());
