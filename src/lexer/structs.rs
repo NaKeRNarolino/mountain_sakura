@@ -1,7 +1,15 @@
 use std::collections::HashMap;
 
+#[derive(Debug, Clone)]
+pub struct Token {
+    pub file_name: String,
+    pub line: usize,
+    pub column: usize,
+    pub value: TokenValue,
+}
+
 #[derive(Debug, Clone, PartialEq)]
-pub enum Token {
+pub enum TokenValue {
     Number(f64),
     String(String),
     Boolean(bool),
@@ -36,7 +44,8 @@ pub enum KeywordType {
     Block,
     Layout,
     Mix,
-    Tied
+    Tied,
+    Repeat
 }
 
 pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
@@ -61,7 +70,8 @@ pub fn reserved_keywords<'a>() -> HashMap<&'a str, KeywordType> {
         ("block", KeywordType::Block),
         ("layout", KeywordType::Layout),
         ("mix", KeywordType::Mix),
-        ("tied", KeywordType::Tied)
+        ("tied", KeywordType::Tied),
+        ("repeat", KeywordType::Repeat)
     ])
 }
 
@@ -122,6 +132,8 @@ pub enum SignType {
     At,                    // @
     Tilde,                 // ~
     TildeArrow,            // ~>
+    DoubleColon,           // ::
+    DollarSign,            // $
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -142,97 +154,103 @@ pub fn simple_sign_types() -> HashMap<char, SignType> {
         ('#', SignType::HashSign),
         ('^', SignType::Caret),
         ('@', SignType::At),
-        ('~', SignType::Tilde)
+        ('$', SignType::DollarSign),
+        ('~', SignType::Tilde),
     ])
 }
 
 pub struct TwoElementSignsConversion {
-    pub first: Token,
-    pub second: Token,
-    pub result: Token,
+    pub first: TokenValue,
+    pub second: TokenValue,
+    pub result: TokenValue,
 }
 
 pub fn two_element_signs_conversions() -> Vec<TwoElementSignsConversion> {
     vec![
         TwoElementSignsConversion {
-            first: Token::Operator(OperatorType::Plus),
-            second: Token::Operator(OperatorType::Plus),
-            result: Token::Operator(OperatorType::Increment),
+            first: TokenValue::Operator(OperatorType::Plus),
+            second: TokenValue::Operator(OperatorType::Plus),
+            result: TokenValue::Operator(OperatorType::Increment),
         }, // ++
         TwoElementSignsConversion {
-            first: Token::Operator(OperatorType::Minus),
-            second: Token::Operator(OperatorType::Minus),
-            result: Token::Operator(OperatorType::Decrement),
+            first: TokenValue::Operator(OperatorType::Minus),
+            second: TokenValue::Operator(OperatorType::Minus),
+            result: TokenValue::Operator(OperatorType::Decrement),
         }, // --
         TwoElementSignsConversion {
-            first: Token::Operator(OperatorType::Minus),
-            second: Token::Operator(OperatorType::Bigger),
-            result: Token::Sign(SignType::Arrow),
+            first: TokenValue::Operator(OperatorType::Minus),
+            second: TokenValue::Operator(OperatorType::Bigger),
+            result: TokenValue::Sign(SignType::Arrow),
         }, // ->
         TwoElementSignsConversion {
-            first: Token::Operator(OperatorType::Smaller),
-            second: Token::Operator(OperatorType::Minus),
-            result: Token::Sign(SignType::BackwardArrow),
+            first: TokenValue::Operator(OperatorType::Smaller),
+            second: TokenValue::Operator(OperatorType::Minus),
+            result: TokenValue::Sign(SignType::BackwardArrow),
         }, // <-
         TwoElementSignsConversion {
-            first: Token::Operator(OperatorType::Equal),
-            second: Token::Operator(OperatorType::Bigger),
-            result: Token::Sign(SignType::EqArrow),
+            first: TokenValue::Operator(OperatorType::Equal),
+            second: TokenValue::Operator(OperatorType::Bigger),
+            result: TokenValue::Sign(SignType::EqArrow),
         }, // =>
         TwoElementSignsConversion {
-            first: Token::Operator(OperatorType::Bigger),
-            second: Token::Operator(OperatorType::Equal),
-            result: Token::Operator(OperatorType::BiggerEqual),
+            first: TokenValue::Operator(OperatorType::Bigger),
+            second: TokenValue::Operator(OperatorType::Equal),
+            result: TokenValue::Operator(OperatorType::BiggerEqual),
         }, // >=
         TwoElementSignsConversion {
-            first: Token::Operator(OperatorType::Smaller),
-            second: Token::Operator(OperatorType::Equal),
-            result: Token::Operator(OperatorType::SmallerEqual),
+            first: TokenValue::Operator(OperatorType::Smaller),
+            second: TokenValue::Operator(OperatorType::Equal),
+            result: TokenValue::Operator(OperatorType::SmallerEqual),
         }, // <=
         TwoElementSignsConversion {
-            first: Token::Sign(SignType::Arrow),
-            second: Token::Operator(OperatorType::Bigger),
-            result: Token::Sign(SignType::DoubleArrow),
+            first: TokenValue::Sign(SignType::Arrow),
+            second: TokenValue::Operator(OperatorType::Bigger),
+            result: TokenValue::Sign(SignType::DoubleArrow),
         }, // ->>
         TwoElementSignsConversion {
-            first: Token::Operator(OperatorType::Equal),
-            second: Token::Operator(OperatorType::Equal),
-            result: Token::Sign(SignType::Equality),
+            first: TokenValue::Operator(OperatorType::Equal),
+            second: TokenValue::Operator(OperatorType::Equal),
+            result: TokenValue::Sign(SignType::Equality),
         }, // ==
         TwoElementSignsConversion {
-            first: Token::Sign(SignType::ExclamationMk),
-            second: Token::Operator(OperatorType::Equal),
-            result: Token::Sign(SignType::Inequality),
+            first: TokenValue::Sign(SignType::ExclamationMk),
+            second: TokenValue::Operator(OperatorType::Equal),
+            result: TokenValue::Sign(SignType::Inequality),
         }, // !=
         TwoElementSignsConversion {
-            first: Token::Operator(OperatorType::Divide),
-            second: Token::Operator(OperatorType::Divide),
-            result: Token::Sign(SignType::Comment),
+            first: TokenValue::Operator(OperatorType::Divide),
+            second: TokenValue::Operator(OperatorType::Divide),
+            result: TokenValue::Sign(SignType::Comment),
         }, // //
         TwoElementSignsConversion {
-            first: Token::Sign(SignType::Colon),
-            second: Token::Operator(OperatorType::Equal),
-            result: Token::Operator(OperatorType::SelfAssign),
+            first: TokenValue::Sign(SignType::Colon),
+            second: TokenValue::Operator(OperatorType::Equal),
+            result: TokenValue::Operator(OperatorType::SelfAssign),
         }, // :=
         TwoElementSignsConversion {
-            first: Token::Sign(SignType::QuestionMk),
-            second: Token::Sign(SignType::Colon),
-            result: Token::Operator(OperatorType::Repeat),
+            first: TokenValue::Sign(SignType::QuestionMk),
+            second: TokenValue::Sign(SignType::Colon),
+            result: TokenValue::Operator(OperatorType::Repeat),
         }, // ?:
         TwoElementSignsConversion {
-            first: Token::Sign(SignType::Dot),
-            second: Token::Sign(SignType::Dot),
-            result: Token::Sign(SignType::DoubleDot),
+            first: TokenValue::Sign(SignType::Dot),
+            second: TokenValue::Sign(SignType::Dot),
+            result: TokenValue::Sign(SignType::DoubleDot),
         }, // ..
         TwoElementSignsConversion {
-            first: Token::Operator(OperatorType::Divide),
-            second: Token::Operator(OperatorType::Bigger),
-            result: Token::Sign(SignType::SlashArrow),
+            first: TokenValue::Operator(OperatorType::Divide),
+            second: TokenValue::Operator(OperatorType::Bigger),
+            result: TokenValue::Sign(SignType::SlashArrow),
         }, // />
         TwoElementSignsConversion {
-            first: Token::Sign(SignType::Tilde),
-            second: Token::Operator(OperatorType::Bigger),
-            result: Token::Sign(SignType::TildeArrow),
+            first: TokenValue::Sign(SignType::Tilde),
+            second: TokenValue::Operator(OperatorType::Bigger),
+            result: TokenValue::Sign(SignType::TildeArrow),
         }, // ~>
+        TwoElementSignsConversion {
+            first: TokenValue::Sign(SignType::Colon),
+            second: TokenValue::Sign(SignType::Colon),
+            result: TokenValue::Sign(SignType::DoubleColon),
+        }, // ::
     ]
 }

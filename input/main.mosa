@@ -1,6 +1,25 @@
 use native fn print#"mosa-native~>print";
 use native fn printLn#"mosa-native~>printLn";
 
-let x = use test:import~>hi;
+use test:import~>hi;
+use test:import~>Hi;
 
-x * hi()
+use test:other~>quadruple;
+
+use @std:lib~>std;
+
+//fn x2(n: num) -> num {
+//    n * 2
+//}
+//
+//quadruple(Hi { v = 7 }).double() * 2
+
+repeat block {
+    printLn(std())
+} ?: 3
+
+//let x = Hi { v = 7 };
+
+//x.double()
+
+//x2(4)

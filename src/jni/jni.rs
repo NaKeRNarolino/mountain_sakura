@@ -1,18 +1,21 @@
-use std::string::String;
-use std::collections::HashMap;
-use std::sync::Mutex;
+use crate::interpreter::structs::Reference;
 use jni::{JNIEnv, JavaVM};
 use lazy_static::lazy_static;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 pub fn assign_global_jvm(jvm: JNIEnv) {
-    GLOBAL.lock().unwrap().insert("PUBLIC".parse().unwrap(), jvm.get_java_vm().unwrap());
+    GLOBAL
+        .lock()
+        .unwrap()
+        .insert("PUBLIC".parse().unwrap(), jvm.get_java_vm().unwrap());
 }
 pub fn jvm() {
     GLOBAL.lock().unwrap().get("PUBLIC").unwrap();
 }
 
 lazy_static! {
-    static ref GLOBAL: Mutex<HashMap<String,JavaVM>> = Mutex::new(HashMap::new());
+    static ref GLOBAL: Mutex<HashMap<String, JavaVM>> = Mutex::new(HashMap::new());
 }
 #[derive(Clone)]
 pub struct JNIClass {
@@ -37,15 +40,14 @@ pub struct JNIMethod {
     // commons
     return_types: Vec<JNIClass>,
     parameter_types: Vec<JNIClass>,
-    exception_types: Vec<JNIClass>
+    exception_types: Vec<JNIClass>,
 }
 #[derive(Clone)]
 pub struct JNIField {
     // commons
     owner: JNIClass,
     name: String,
-    modifiers: Modifier
-    // commons
+    modifiers: Modifier, // commons
 }
 #[derive(Clone)]
 pub struct JNIConstructor {
@@ -55,12 +57,10 @@ pub struct JNIConstructor {
     modifiers: Modifier,
     // commons
     parameter_types: Vec<JNIClass>,
-    exception_types: Vec<JNIClass>
+    exception_types: Vec<JNIClass>,
 }
 pub fn staticmodifier() -> Modifier {
-    Modifier {
-        modifiers: 8
-    }
+    Modifier { modifiers: 8 }
 }
 
 impl Modifier {
@@ -82,7 +82,7 @@ impl Modifier {
     public static final int ENUM = 16384;
     public static final int MANDATED = 32768;
      */
-    fn mod_eq(&self,id: i32) -> bool {
+    fn mod_eq(&self, id: i32) -> bool {
         (self.modifiers & id) != 0
     }
     pub fn is_public(&self) -> bool {

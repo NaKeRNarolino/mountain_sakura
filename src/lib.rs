@@ -16,12 +16,18 @@ use crate::parser::Parser;
 
 pub mod global;
 pub mod interpreter;
+pub mod jni;
 pub mod lexer;
-pub mod parser;
+pub mod logging;
 pub mod modules;
 pub mod mosa_fs;
+
 pub mod jni;
 pub mod opts;
+pub mod parser;
+pub mod wrapper;
+pub mod prelude;
+
 
 #[no_mangle]
 pub extern "system" fn Java_dev_kofeychi_mosajni_MosaJniBinds_jni<'local>(env: JNIEnv<'local>,
@@ -111,4 +117,3 @@ pub extern "system" fn Java_dev_kofeychi_mosajni_MosaJniBinds_eval<'local>(mut e
 
     dbg!(elapsed);
 }
-

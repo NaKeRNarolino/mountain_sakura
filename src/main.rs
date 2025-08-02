@@ -1,71 +1,32 @@
-use crate::interpreter::scope::RuntimeScope;
-use crate::interpreter::Interpreter;
-use crate::parser::Parser;
-use std::fs;
-use std::io::Write;
-use std::sync::Arc;
-use std::time::Instant;
-use crate::global::DataType;
-use crate::global::PrimitiveDataType;
 use crate::interpreter::structs::RuntimeValue;
-use crate::modules::{Module, ModuleStorage};
+use crate::wrapper::bindings::MoSaNativeGen;
+use crate::wrapper::MoSaRunner;
 
 pub mod global;
 pub mod interpreter;
 pub mod lexer;
-pub mod parser;
+pub mod logging;
 pub mod modules;
 pub mod mosa_fs;
-
 pub mod opts;
-
-fn get_input() -> String {
-    let file = fs::read_to_string("./input/main.mosa").unwrap();
-
-    file
-}
+pub mod parser;
+pub mod wrapper;
 
 fn main() {
-    let file = get_input();
+    let runner = MoSaRunner::new("./input/main.mosa")
+        .add_lib("std", "./lib/std")
+        .add_bindings(
+            vec![
+                |args: Vec<RuntimeValue>| -> RuntimeValue {
+                    println!("{}", args[0]);
+                    RuntimeValue::Null
+                }.binding("mosa-native~>printLn"),
+                |args: Vec<RuntimeValue>| -> RuntimeValue {
+                    print!("{}", args[0]);
+                    RuntimeValue::Null
+                }.binding("mosa-native~>print")
+            ],
+        );
 
-    let module_storage = Arc::new(ModuleStorage::new());
-    let module = Module::new("main".to_string());
-
-    let mut parser = Parser::new(file, module, module_storage.clone(), "/home/nakernarolino/RustroverProjects/mountain_sakura/input/".to_string(), "".to_string());
-    let ast = parser.gen_ast();
-    let interpreter = Interpreter::new(ast.clone(), module_storage);
-
-    dbg!(ast);
-
-    let mut scope = RuntimeScope::new(None);
-    
-    scope.declare_variable("null".to_string(), DataType::Primitive(PrimitiveDataType::Null), RuntimeValue::Null, true);
-    
-    scope.add_native_function(String::from("mosa-native~>printLn"), Arc::new(|args| {
-        println!("{}", args[0]);
-        std::io::stdout().flush().unwrap();
-
-        RuntimeValue::Null
-    }));
-
-    scope.add_native_function(String::from("mosa-native~>print"), Arc::new(|args| {
-        print!("{}", args[0]);
-        RuntimeValue::Null
-    }));
-    
-    //
-    // env_map.insert(Uuid::new_v4(), Environment::new());
-
-    // env.declare_variable(true, String::from("true"), RuntimeValue::Bool(true)).unwrap();
-    // env.declare_variable(true, String::from("false"), RuntimeValue::Bool(false)).unwrap();
-
-    // dbg!(parser.gen_ast());
-
-    let time = Instant::now();
-
-    dbg!(interpreter.eval_program(scope));
-
-    let elapsed = time.elapsed();
-
-    dbg!(elapsed);
+    dbg!(runner.run().unwrap());
 }

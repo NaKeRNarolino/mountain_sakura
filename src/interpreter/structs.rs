@@ -1,9 +1,12 @@
+use crate::interpreter::scope::FunctionData;
+use crate::interpreter::RuntimeScopeW;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Div, Mul, Sub};
 use std::sync::{Arc, RwLock};
-use crate::interpreter::RuntimeScopeW;
-use crate::interpreter::scope::FunctionData;
+use crate::parser::structs::ASTNode;
+
+pub type MoSaNativeFunction = Arc<dyn Fn(Vec<RuntimeValue>) -> RuntimeValue>;
 
 #[derive(Debug, Clone)]
 pub enum RuntimeValue {
@@ -13,19 +16,19 @@ pub enum RuntimeValue {
     Bool(bool),
     Iterable(Vec<IterablePair>),
     Complex(ComplexRuntimeValue),
-    Reference(Reference)
+    Reference(Reference),
 }
 
 #[derive(Debug, Clone)]
 pub enum ComplexRuntimeValue {
     Enum(EnumData),
-    Layout(Arc<LayoutData>)
+    Layout(Arc<LayoutData>),
 }
 
 #[derive(Clone)]
 pub enum Reference {
     Function(FunctionData),
-    MethodLikeFunction(FunctionData, String, RuntimeScopeW)
+    MethodLikeFunction(FunctionData, Box<ASTNode>, RuntimeScopeW),
 }
 
 impl Debug for Reference {
@@ -33,7 +36,6 @@ impl Debug for Reference {
         f.write_str("Reference::*")
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct IterablePair {
@@ -43,7 +45,7 @@ pub struct IterablePair {
 #[derive(Debug, Clone)]
 pub struct EnumData {
     pub enum_id: String,
-    pub entry: String
+    pub entry: String,
 }
 
 #[derive(Debug, Clone)]
@@ -51,8 +53,6 @@ pub struct LayoutData {
     pub layout_id: String,
     pub entries: Arc<RwLock<HashMap<String, RuntimeValue>>>,
 }
-
-
 
 impl Add for RuntimeValue {
     type Output = RuntimeValue;
@@ -193,30 +193,18 @@ impl RuntimeValue {
 impl Display for RuntimeValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            RuntimeValue::Number(num) => {
-                num.to_string()
-            },
-            RuntimeValue::Null => {
-                String::from("null")
-            },
-            RuntimeValue::String(str) => {
-                str.clone()
-            },
-            RuntimeValue::Bool(bool) => {
-                String::from(if *bool {
-                    "true"
-                } else {
-                    "false"
-                })
-            },
+            RuntimeValue::Number(num) => num.to_string(),
+            RuntimeValue::Null => String::from("null"),
+            RuntimeValue::String(str) => str.clone(),
+            RuntimeValue::Bool(bool) => String::from(if *bool { "true" } else { "false" }),
             RuntimeValue::Complex(_) => {
                 String::from("Unable to properly convert the value to a string.")
-            },
+            }
             RuntimeValue::Iterable(v) => format!("{:?}", v),
             RuntimeValue::Reference(v) => match v {
                 Reference::Function(_) => "ref[function]".to_string(),
-                Reference::MethodLikeFunction(..) => "ref[function]".to_string()
-            }
+                Reference::MethodLikeFunction(..) => "ref[function]".to_string(),
+            },
         };
         write!(f, "{}", str)
     }

@@ -1,8 +1,8 @@
 use crate::global::DataType;
-use crate::interpreter::scope::FunctionData;
-use std::collections::HashMap;
-use std::hash::Hash;
+use crate::interpreter::scope::{FnArgs, FunctionData, RuntimeScopeW};
 use indexmap::IndexMap;
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ASTNode {
@@ -29,17 +29,25 @@ pub enum ASTNode {
     Typeof(Box<ASTNode>),
     LayoutDeclaration(LayoutDeclaration),
     LayoutCreation(LayoutCreation),
-    LayoutFieldAccess(String, String),
-    MixStatement(String, Vec<FunctionData>),
+    LayoutFieldAccess(Box<ASTNode>, String),
+    MixStatement(String, Vec<ParserFunctionData>),
     InternalMulti(Vec<ASTNode>),
-    UseModule(String, String)
+    UseModule(String, String),
+    Lambda(IndexMap<String, DataType>, Box<ASTNode>, DataType),
+    Indexing(Box<ASTNode>, Box<ASTNode>),
+    InternalStop(usize, String),
 }
-
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum AssignmentProperty {
     Variable(String),
-    LayoutField(String, String)
+    LayoutField(Box<ASTNode>, String),
+}
+
+#[derive(Clone)]
+pub enum ModulePathMode {
+    Static(PathBuf),
+    Lib(String)
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -58,19 +66,19 @@ pub struct ForStatement {
 pub struct IfStatement {
     pub condition: Box<ASTNode>,
     pub if_block: Box<ASTNode>,
-    pub else_block: Option<Box<ASTNode>>
+    pub else_block: Option<Box<ASTNode>>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct UseNative {
     pub name: String,
-    pub from: String
+    pub from: String,
 }
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct LayoutCreation {
     pub name: String,
-    pub specified_fields: HashMap<String, Box<ASTNode>>
+    pub specified_fields: HashMap<String, Box<ASTNode>>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -94,7 +102,16 @@ pub struct LayoutDeclaration {
 #[derive(Clone, PartialEq, Debug)]
 pub struct FieldParserDescription {
     pub type_id: String,
-    pub default_value: Option<Box<ASTNode>>
+    pub default_value: Option<Box<ASTNode>>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ParserFunctionData {
+    pub name: String,
+    pub args: FnArgs,
+    pub body: Vec<ASTNode>,
+    pub return_type: DataType,
+    pub tied: bool,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -119,7 +136,7 @@ pub enum Operand {
     BiggerEqual,
     SmallerEqual,
     Equal,
-    DoubleDot
+    DoubleDot,
 }
 
 #[derive(Clone, PartialEq, Debug)]

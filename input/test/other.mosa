@@ -1,3 +1,9 @@
-exp fn x() -> num {
-    10
+use import~>Hi;
+
+exp fn quadruple(h: Hi) -> Hi {
+    Hi {
+        v = 2 * h.double()
+    }
 }
+
+//immut let x = 10;l
