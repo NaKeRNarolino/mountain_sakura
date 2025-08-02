@@ -137,12 +137,12 @@ impl Parser {
         self.module_storage.push((*self.module).clone());
 
 
-        dbg!(&body);
+        // dbg!(&body);
         ASTNode::Program(body)
     }
 
     fn parse_expressions(&mut self) -> ASTNode {
-        dbg!(&&&self.curr());
+        // dbg!(&&&self.curr());
         match self.curr().value {
             TokenValue::Keyword(keyword) => match keyword {
                 KeywordType::Let => self.parse_variable_declaration(),
