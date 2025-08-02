@@ -8,6 +8,7 @@ pub mod lexer;
 pub mod logging;
 pub mod modules;
 pub mod mosa_fs;
+pub mod opts;
 pub mod parser;
 pub mod wrapper;
 

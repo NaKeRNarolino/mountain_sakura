@@ -51,3 +51,9 @@ printLn(q); // prints `2`
 ```
 
 You can check the docs at the wiki: https://github.com/NaKeRNarolino/mountain_sakura/wiki
+
+# JNI
+This repository now includes optional module of JNI which cannot be used when application runs on rust.
+Currently there are no limiters to JNI and also no JNI library for usage. But it will be implemented!
+
+[JNI Code repo](https://github.com/kofeychi/mosajni)

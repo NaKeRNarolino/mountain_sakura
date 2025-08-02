@@ -10,6 +10,9 @@ pub fn assign_global_jvm(jvm: JNIEnv) {
         .unwrap()
         .insert("PUBLIC".parse().unwrap(), jvm.get_java_vm().unwrap());
 }
+pub fn jvm() {
+    GLOBAL.lock().unwrap().get("PUBLIC").unwrap();
+}
 
 lazy_static! {
     static ref GLOBAL: Mutex<HashMap<String, JavaVM>> = Mutex::new(HashMap::new());
